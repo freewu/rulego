@@ -36,7 +36,7 @@
 
 ```bash
 go build -o rulego ./cmd/rulego
-./rulego -c config.example.yaml   # 或 make run
+./rulego -c config.example.yaml   # 或 just run
 ```
 
 浏览器打开 **http://localhost:8080**：
@@ -169,7 +169,7 @@ rulego/
 ├── examples/rules/        # 示例规则（JSON）
 ├── scripts/push.sh        # 提交推送脚本（Windows git）
 ├── config.example.yaml    # 配置示例
-└── Makefile               # 常用命令
+├── justfile              # 常用命令（just 版，替代 Makefile）
 ```
 
 ## 自定义积木开发
@@ -206,19 +206,20 @@ Blockly.Lua.forBlock["my_action"] = function (block) {
 
 - **每次完成一轮改动后提交并推送到远程**：`./scripts/push.sh "commit message"`（或 `git add -A && git commit -m "..." && git push`）
 - Go 代码遵循 `gofmt` 格式，提交前运行 `go vet ./...` 与 `go test ./...`
-- 前端脚本修改后用 `node --check` 做语法校验，并运行 `npm test`（Node + jsdom 生成测试）
+- 前端脚本修改后用 `node --check` 做语法校验，并运行 `just test-frontend`（Node + jsdom 生成测试）
 
 ## 测试
 
 ```bash
 # Go 后端测试（配置 / 规则存储 / Lua 沙箱 / HTTP API）
-go test ./...
+just test
 
 # 前端 Blockly → Lua 生成测试（验证自定义积木与生成器）
-cd web && npm install && npm test
+cd web && npm install
+just test-frontend
 
 # 重新生成示例规则 JSON
-cd web && npm run gen-examples
+just examples
 ```
 
 ## 常见问题

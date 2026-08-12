@@ -11,7 +11,7 @@
       "blocks": [
         {
           "type": "rule_trigger",
-          "id": "ZpetkGPx^YuFig7S0H+p",
+          "id": "blk_0",
           "x": 0,
           "y": 0,
           "fields": {
@@ -21,12 +21,12 @@
             "BODY": {
               "block": {
                 "type": "controls_if",
-                "id": "{#,k5o,~_)|/AIE68vz:",
+                "id": "blk_1",
                 "inputs": {
                   "IF0": {
                     "block": {
                       "type": "logic_compare",
-                      "id": "8CvP!g~w=O]ng6OaH+4v",
+                      "id": "blk_2",
                       "fields": {
                         "OP": "GT"
                       },
@@ -34,7 +34,7 @@
                         "A": {
                           "block": {
                             "type": "ctx_get",
-                            "id": "M5%Z5NXHw{m_~JZ0V:n{",
+                            "id": "blk_3",
                             "fields": {
                               "FIELD": "amount"
                             }
@@ -43,7 +43,7 @@
                         "B": {
                           "block": {
                             "type": "math_number",
-                            "id": "{m1LhWxHjQ8`ik7Km]mG",
+                            "id": "blk_4",
                             "fields": {
                               "NUM": 1000
                             }
@@ -55,7 +55,7 @@
                   "DO0": {
                     "block": {
                       "type": "rule_alert",
-                      "id": "Jr+EI|!UYVFRLvBho.w3",
+                      "id": "blk_5",
                       "fields": {
                         "CHANNEL": "webhook"
                       },
@@ -63,7 +63,7 @@
                         "MSG": {
                           "block": {
                             "type": "text",
-                            "id": "AVTO{Ge#.iOo)n7`7izI",
+                            "id": "blk_6",
                             "fields": {
                               "TEXT": "大额订单需人工审核"
                             }
@@ -73,7 +73,7 @@
                       "next": {
                         "block": {
                           "type": "ctx_set",
-                          "id": "~K-H1_d+`$?Qc4C1048:",
+                          "id": "blk_7",
                           "fields": {
                             "FIELD": "need_review"
                           },
@@ -81,7 +81,7 @@
                             "VALUE": {
                               "block": {
                                 "type": "logic_boolean",
-                                "id": "_])o0$`)*IwAcp@GMJ2|",
+                                "id": "blk_8",
                                 "fields": {
                                   "BOOL": "TRUE"
                                 }
@@ -101,6 +101,6 @@
     }
   },
   "lua": "function main(ctx)\n  if ctx['amount'] > 1000 then\n    alert('webhook', tostring('大额订单需人工审核'))\n    ctx['need_review'] = true\n  end\nend\n",
-  "created_at": "2026-08-12T07:46:45.994Z",
-  "updated_at": "2026-08-12T07:46:45.994Z"
+  "created_at": "2026-08-12T00:00:00Z",
+  "updated_at": "2026-08-12T00:00:00Z"
 }

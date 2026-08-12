@@ -11,7 +11,7 @@
       "blocks": [
         {
           "type": "rule_trigger",
-          "id": "5%!?,!UI$o]^J0JQ5Gm5",
+          "id": "blk_0",
           "x": 0,
           "y": 0,
           "fields": {
@@ -21,12 +21,12 @@
             "BODY": {
               "block": {
                 "type": "controls_if",
-                "id": "h:P1=CC4fv[h{S`zHo@U",
+                "id": "blk_1",
                 "inputs": {
                   "IF0": {
                     "block": {
                       "type": "logic_compare",
-                      "id": ";]iw6ya;dndN^)Fw[=VI",
+                      "id": "blk_2",
                       "fields": {
                         "OP": "LT"
                       },
@@ -34,7 +34,7 @@
                         "A": {
                           "block": {
                             "type": "ctx_get",
-                            "id": ":KkWOWs{ZN0oq[[*19GL",
+                            "id": "blk_3",
                             "fields": {
                               "FIELD": "stock"
                             }
@@ -43,7 +43,7 @@
                         "B": {
                           "block": {
                             "type": "math_number",
-                            "id": "qo$5%?or%z!:L:*PGHp1",
+                            "id": "blk_4",
                             "fields": {
                               "NUM": 10
                             }
@@ -55,7 +55,7 @@
                   "DO0": {
                     "block": {
                       "type": "rule_alert",
-                      "id": "R(q85%dqlI[X+cE^}o1*",
+                      "id": "blk_5",
                       "fields": {
                         "CHANNEL": "email"
                       },
@@ -63,7 +63,7 @@
                         "MSG": {
                           "block": {
                             "type": "text",
-                            "id": "ZU1jB$Sz)_OV7v@9-?pI",
+                            "id": "blk_6",
                             "fields": {
                               "TEXT": "低库存告警"
                             }
@@ -73,7 +73,7 @@
                       "next": {
                         "block": {
                           "type": "rule_log",
-                          "id": "y(4a0B-]GkPg|8{|*O2V",
+                          "id": "blk_7",
                           "fields": {
                             "LEVEL": "warn"
                           },
@@ -81,7 +81,7 @@
                             "MSG": {
                               "block": {
                                 "type": "text",
-                                "id": "wq9O1|s;OiSdN`e1e%)@",
+                                "id": "blk_8",
                                 "fields": {
                                   "TEXT": "库存不足"
                                 }
@@ -101,6 +101,6 @@
     }
   },
   "lua": "function main(ctx)\n  if ctx['stock'] < 10 then\n    alert('email', tostring('低库存告警'))\n    log('warn', tostring('库存不足'))\n  end\nend\n",
-  "created_at": "2026-08-12T07:46:45.992Z",
-  "updated_at": "2026-08-12T07:46:45.992Z"
+  "created_at": "2026-08-12T00:00:00Z",
+  "updated_at": "2026-08-12T00:00:00Z"
 }

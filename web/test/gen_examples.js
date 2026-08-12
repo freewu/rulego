@@ -31,6 +31,21 @@ function ruleJson(id, name, desc, trigger, workspace, enabled = true) {
   Blockly.serialization.workspaces.load(workspace, ws);
   const lua = Blockly.Lua.workspaceToCode(ws);
   const now = new Date().toISOString();
+  // 固定时间戳与 block ID，保证每次生成结果可复现（git diff 干净）
+  const TS = "2026-08-12T00:00:00Z";
+  const idMap = new Map();
+  let n = 0;
+  (function stable(obj) {
+    if (Array.isArray(obj)) { obj.forEach(stable); return; }
+    if (obj && typeof obj === "object") {
+      for (const k of Object.keys(obj)) {
+        if (k === "id" && typeof obj[k] === "string") {
+          if (!idMap.has(obj[k])) idMap.set(obj[k], "blk_" + n++);
+          obj[k] = idMap.get(obj[k]);
+        } else stable(obj[k]);
+      }
+    }
+  })(workspace);
   return {
     id,
     name,
@@ -40,8 +55,8 @@ function ruleJson(id, name, desc, trigger, workspace, enabled = true) {
     trigger,
     workspace,
     lua,
-    created_at: now,
-    updated_at: now,
+    created_at: TS,
+    updated_at: TS,
   };
 }
 

@@ -31,13 +31,14 @@
 |------|-----|
 | Go | 1.25.1（Windows 版，`/mnt/c/Users/24358/.g/go/bin/go.exe`） |
 | Node | v24.10.0（`/mnt/d/env/nodejs/node.exe`） |
-| Go 代理 | `GOPROXY=https://goproxy.cn,direct`（proxy.golang.org 被墙） |
+| just | 1.58.0（Windows 版，符号链接到 `~/.local/bin/just`，WSL 可直接 `just`） |
+| Go 代理 | `GOPROXY=https://goproxy.cn,direct`（proxy.golang.org 被墙；justfile 已内置默认） |
 | 本地 git 身份 | 已配置：freewu / freewu@users.noreply.github.com（仓库级） |
 
 ## 提交前检查
 
 - Go 代码：`gofmt` 格式、`go vet ./...`、`go test ./...` 全绿
-- 前端 JS：`node --check <file>` 语法校验、`cd web && npm test`（Blockly→Lua 生成测试）
+- 前端 JS：`node --check <file>` 语法校验、`just test-frontend`（Blockly→Lua 生成测试）
 - 工作区干净（`git status` 无未提交改动）
 
 ## 项目要点速览
