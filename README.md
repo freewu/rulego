@@ -225,7 +225,8 @@ just examples
 ## 常见问题
 
 **Q: just 命令在 Windows 和 WSL 下都能用吗？**
-可以。justfile 跨平台：Windows 终端与 WSL/Linux 通用，平台差异（工具链路径、可执行文件后缀）由 `os()` 判断自动处理。注意 just 1.58 在 Windows 上默认 shell 是 `sh`（Git Bash），需保证 PATH 包含 `D:\Program Files\Git\bin`。已配置 PowerShell profile 自动补齐该路径；若仍报 `could not find the shell sh`，**关闭并重新打开 PowerShell**（让 PATH 与 profile 生效）即可。当前会话临时修复：`$env:PATH = "D:\Program Files\Git\bin;" + $env:PATH`。
+**Q: just 命令在 Windows 和 WSL 下都能用吗？**
+可以。justfile 跨平台：Windows 终端与 WSL/Linux 通用，平台差异（工具链路径、可执行文件后缀）由 `os()` 判断自动处理。注意 just 1.58 在 Windows 上**优先使用 `SHELL` 环境变量**确定 shell，若它指向 unix 路径（如 Git Bash 会话继承的 `/usr/bin/sh`）会报 `could not find the shell sh`。已配置 PowerShell profile 将 `SHELL` 强制为 `D:\Program Files\Git\bin\sh.exe` 并补齐 PATH；报错时**关闭并重新打开 PowerShell** 即可。当前会话临时修复：`$env:SHELL = "D:\Program Files\Git\bin\sh.exe"`。
 
 **Q: 本地 git push 报 `gnutls_handshake() failed` / 连接超时？**
 本环境（WSL + 代理）下 WSL 版 git 推送 HTTPS 大包易失败，请改用 Windows 版 git：
