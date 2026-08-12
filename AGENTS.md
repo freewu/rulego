@@ -43,10 +43,10 @@
 
 ## just 跨平台注意事项
 
-- **Windows 终端**（cmd/PowerShell）直接输 `just` 即可（Windows 版 just）
+- **Windows 终端**（cmd/PowerShell）直接输 `just` 即可（Windows 版 just）；无参数 `just` 列出可用命令
 - **WSL bash** 直接输 `just`（Linux 版 just）
 - **just 1.58 在 Windows 上默认 shell 是 `sh`**（Git Bash），要求 PATH 含 `D:\Program Files\Git\bin`（sh.exe）
-- 报错 `could not find the shell sh: program not found` → 重启终端（让 PATH 生效）或检查 `D:\Program Files\Git\bin` 是否在 PATH
+- 已配置 PowerShell profile（`Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1`）自动补齐 Git\bin；若仍报 `could not find the shell sh` → 关闭重开 PowerShell 或临时执行 `$env:PATH = "D:\Program Files\Git\bin;" + $env:PATH`
 - 平台差异（go/node 路径、`rulego.exe` vs `./rulego`）由 justfile 中 `os()` 判断处理；所有命令统一 sh 语法
 
 ## 项目要点速览
