@@ -1,12 +1,28 @@
-# rulego 常用命令（just 版，替代 Makefile）
-set shell := ["bash", "-cu"]
+# rulego 常用命令（跨平台：Windows 终端 / WSL / Linux）
+# 平台说明：
+# - Windows 终端：Windows 版 just（默认 shell = cmd）
+# - WSL / Linux：Linux 版 just（默认 shell = sh/bash）
+# 平台差异通过 os() 判断的变量自动处理，同一 justfile 两处通用
 
-# Go 模块代理（本环境 proxy.golang.org 被墙，默认走 goproxy.cn）
+# 启用 unstable 特性以支持比较运算符（os() 平台判断）
+set unstable
+set lists := true
+
+# Go 模块代理（proxy.golang.org 被墙，默认走 goproxy.cn）
 export GOPROXY := env_var_or_default("GOPROXY", "https://goproxy.cn,direct")
 
-# 工具链：优先用 PATH 中的 go/node，WSL 下回退到已知绝对路径
-go := shell("command -v go || echo /mnt/c/Users/24358/.g/go/bin/go.exe")
-node := shell("command -v node || echo /mnt/d/env/nodejs/node.exe")
+# 工具链：Windows 终端直接走 PATH 中的 go/node；
+# WSL 下 go/node 不在 PATH，使用绝对路径
+go := if os() == "windows" { "go" } else { "/mnt/c/Users/24358/.g/go/bin/go.exe" }
+node := if os() == "windows" { "node" } else { "/mnt/d/env/nodejs/node.exe" }
+
+# 平台相关命令片段
+bin := if os() == "windows" { "rulego.exe" } else { "./rulego" }
+rm_cmd := if os() == "windows" {
+  "if exist rulego.exe del /q rulego.exe & if exist data rmdir /s /q data"
+} else {
+  "rm -f rulego && rm -rf data"
+}
 
 # 构建
 build:
@@ -14,7 +30,7 @@ build:
 
 # 运行（先构建，Ctrl+C 停止）
 run: build
-    ./rulego -c config.example.yaml
+    @{{bin}} -c config.example.yaml
 
 # 后端测试（配置 / 规则存储 / Lua 沙箱 / HTTP API）
 test:
@@ -30,5 +46,4 @@ examples:
 
 # 清理构建产物与运行时数据
 clean:
-    rm -f rulego
-    rm -rf data
+    @{{rm_cmd}}

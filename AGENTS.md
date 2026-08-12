@@ -31,7 +31,7 @@
 |------|-----|
 | Go | 1.25.1（Windows 版，`/mnt/c/Users/24358/.g/go/bin/go.exe`） |
 | Node | v24.10.0（`/mnt/d/env/nodejs/node.exe`） |
-| just | 1.58.0（Windows 版，符号链接到 `~/.local/bin/just`，WSL 可直接 `just`） |
+| just | 1.58.0 双平台：Windows 版 `D:\env\bin\just-1.58.0-x86_64-pc-windows-msvc\just.exe`；Linux 版 `/mnt/c/Users/24358/.local/bin/just`（WSL bash 直接 `just`）。justfile 按 `os()` 自动切换 shell：Windows→cmd、WSL/Linux→sh |
 | Go 代理 | `GOPROXY=https://goproxy.cn,direct`（proxy.golang.org 被墙；justfile 已内置默认） |
 | 本地 git 身份 | 已配置：freewu / freewu@users.noreply.github.com（仓库级） |
 
@@ -40,6 +40,13 @@
 - Go 代码：`gofmt` 格式、`go vet ./...`、`go test ./...` 全绿
 - 前端 JS：`node --check <file>` 语法校验、`just test-frontend`（Blockly→Lua 生成测试）
 - 工作区干净（`git status` 无未提交改动）
+
+## just 跨平台注意事项
+
+- **Windows 终端**（cmd/PowerShell）直接输 `just` 即可（走 Windows 版，默认 cmd shell）
+- **WSL bash** 直接输 `just`（走 Linux 版，默认 sh shell）；平台差异由 justfile 中 `os()` 判断处理
+- ⚠️ **不要从 WSL 里启动 cmd 再跑 just**：WSL 启动的 cmd 进程会继承 `SHELL=/usr/bin/bash`，just 会误用 bash shell 执行 cmd 分支命令（如 `clean`）导致失败
+- 若需在 Windows 侧验证 just，直接打开 cmd/PowerShell 窗口操作
 
 ## 项目要点速览
 
