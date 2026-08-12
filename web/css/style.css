@@ -1,0 +1,244 @@
+:root {
+  --primary: #2563eb;
+  --accent: #7c3aed;
+  --bg: #f1f5f9;
+  --panel: #ffffff;
+  --border: #e2e8f0;
+  --text: #0f172a;
+  --muted: #64748b;
+  --danger: #dc2626;
+  --ok: #16a34a;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body { height: 100%; }
+
+body {
+  font-family: "PingFang SC", "Microsoft YaHei", "Segoe UI", system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  display: flex;
+  flex-direction: column;
+}
+
+/* ---------- 顶栏 ---------- */
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 20px;
+  background: linear-gradient(90deg, #1e3a8a, #4f46e5);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  z-index: 10;
+}
+
+.brand { display: flex; align-items: center; gap: 10px; }
+.brand .logo { font-size: 26px; }
+.brand h1 { font-size: 18px; font-weight: 600; }
+.brand .subtitle { font-size: 12px; opacity: 0.8; }
+
+.actions { display: flex; gap: 8px; }
+
+/* ---------- 按钮 ---------- */
+.btn {
+  border: none;
+  border-radius: 6px;
+  padding: 8px 16px;
+  font-size: 14px;
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+  transition: background 0.15s;
+}
+.btn:hover { background: rgba(255, 255, 255, 0.3); }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.btn-primary { background: var(--primary); }
+.btn-primary:hover { background: #1d4ed8; }
+.btn-accent { background: var(--accent); }
+.btn-accent:hover { background: #6d28d9; }
+.btn-sm { padding: 4px 10px; font-size: 12px; background: var(--muted); color: #fff; }
+.btn-block { width: 100%; padding: 10px; }
+
+/* ---------- 布局 ---------- */
+.layout {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+
+.workspace-pane {
+  flex: 1;
+  min-width: 0;
+  position: relative;
+  border-right: 1px solid var(--border);
+}
+#blocklyDiv { position: absolute; inset: 0; }
+
+/* ---------- 侧栏 ---------- */
+.sidebar {
+  width: 380px;
+  background: var(--panel);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.tabs { display: flex; border-bottom: 1px solid var(--border); }
+.tab {
+  flex: 1;
+  padding: 10px 4px;
+  border: none;
+  background: transparent;
+  font-size: 13px;
+  color: var(--muted);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+}
+.tab.active { color: var(--primary); border-bottom-color: var(--primary); font-weight: 600; }
+
+.tab-panel { display: none; padding: 14px; overflow-y: auto; flex: 1; }
+.tab-panel.active { display: block; }
+
+.form-row { margin-bottom: 14px; }
+.form-row label {
+  display: block;
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 5px;
+  font-weight: 600;
+}
+.form-row input[type="text"] {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 14px;
+}
+.form-row input[type="text"]:disabled { background: var(--bg); color: var(--muted); }
+
+.hint {
+  margin-top: 12px;
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--muted);
+  background: #f8fafc;
+  border: 1px dashed var(--border);
+  border-radius: 6px;
+  padding: 10px;
+}
+.hint code { background: #e2e8f0; padding: 1px 4px; border-radius: 3px; font-size: 11px; }
+
+/* ---------- 开关 ---------- */
+.switch { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+.switch input { display: none; }
+.switch .slider {
+  width: 40px; height: 22px;
+  background: #cbd5e1;
+  border-radius: 11px;
+  position: relative;
+  transition: background 0.2s;
+}
+.switch .slider::after {
+  content: "";
+  position: absolute;
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  top: 2px; left: 2px;
+  transition: left 0.2s;
+}
+.switch input:checked + .slider { background: var(--ok); }
+.switch input:checked + .slider::after { left: 20px; }
+.switch span:last-child { font-size: 13px; }
+
+/* ---------- 代码区 ---------- */
+.code-area, .result-area {
+  width: 100%;
+  min-height: 240px;
+  font-family: "JetBrains Mono", Consolas, "Courier New", monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px;
+  resize: vertical;
+  background: #0f172a;
+  color: #a5f3fc;
+  white-space: pre;
+  overflow: auto;
+}
+.code-area.tall { min-height: 160px; }
+.result-area {
+  background: #f8fafc;
+  color: var(--text);
+  min-height: 200px;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.panel-toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.validate-status { font-size: 12px; }
+.validate-status.ok { color: var(--ok); }
+.validate-status.err { color: var(--danger); }
+
+/* ---------- 规则列表 ---------- */
+.rule-list { list-style: none; }
+.rule-list .empty { color: var(--muted); font-size: 13px; padding: 12px 0; text-align: center; }
+.rule-item {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px;
+  margin-bottom: 10px;
+  background: #fff;
+}
+.rule-item .rule-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+.rule-item .rule-name { font-size: 14px; font-weight: 600; }
+.rule-item .rule-meta { font-size: 12px; color: var(--muted); }
+.rule-item .rule-ops { display: flex; gap: 6px; margin-top: 8px; }
+.tag {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: #e2e8f0;
+  color: var(--muted);
+}
+.tag.on { background: #dcfce7; color: var(--ok); }
+.tag.off { background: #fee2e2; color: var(--danger); }
+
+.rule-ops .btn {
+  background: var(--muted);
+  color: #fff;
+  font-size: 12px;
+  padding: 4px 10px;
+}
+.rule-ops .btn.load { background: var(--primary); }
+.rule-ops .btn.del { background: var(--danger); }
+
+/* toast */
+#toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #0f172a;
+  color: #fff;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 14px;
+  z-index: 100;
+  opacity: 0;
+  transition: opacity 0.25s;
+  pointer-events: none;
+  max-width: 70%;
+}
+#toast.show { opacity: 1; }
+#toast.err { background: var(--danger); }
+#toast.ok { background: var(--ok); }

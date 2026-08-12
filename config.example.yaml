@@ -1,0 +1,17 @@
+# rulego 配置文件示例
+# 复制为 config.yaml 后修改，或直接使用环境变量覆盖（RULEGO_*）
+
+server:
+  host: "0.0.0.0"        # 监听地址
+  port: 8080             # 监听端口
+  static_dir: "web"      # 前端静态资源目录（Blockly 页面）
+
+storage:
+  rules_dir: "data/rules" # 规则 JSON 文件存储目录
+
+lua:
+  timeout_seconds: 5     # 单条规则 Lua 执行超时（秒）
+
+# 环境变量覆盖示例：
+#   RULEGO_SERVER_PORT=9090
+#   RULEGO_LUA_TIMEOUT_SECONDS=10

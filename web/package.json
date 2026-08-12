@@ -1,0 +1,15 @@
+{
+  "name": "rulego-web",
+  "version": "1.0.0",
+  "description": "rulego 前端：Blockly 拖拽生成 Lua 规则",
+  "scripts": {
+    "test": "node test/lua_gen.test.js",
+    "gen-examples": "node test/gen_examples.js"
+  },
+  "dependencies": {
+    "blockly": "^11.2.2"
+  },
+  "devDependencies": {
+    "jsdom": "^29.1.1"
+  }
+}
