@@ -18,7 +18,8 @@ node := if os() == "windows" { "node" } else { "/mnt/d/env/nodejs/node.exe" }
 
 # 平台相关命令片段（just 1.58 在 Windows 上默认 shell 是 sh/Git Bash，
 # 因此统一使用 sh 语法；仅可执行文件名与工具链路径有平台差异）
-bin := if os() == "windows" { "rulego.exe" } else { "./rulego" }
+# 注意：MSYS bash 的 PATH 不含当前目录，执行本地二进制必须带 ./ 前缀
+bin := if os() == "windows" { "./rulego.exe" } else { "./rulego" }
 rm_cmd := "rm -f rulego rulego.exe && rm -rf data"
 
 # 无参数执行 `just` 时列出可用命令
@@ -27,7 +28,7 @@ rm_cmd := "rm -f rulego rulego.exe && rm -rf data"
 
 # 构建
 build:
-    {{go}} build -o rulego ./cmd/rulego
+    {{go}} build -o {{bin}} ./cmd/rulego
 
 # 运行（先构建，Ctrl+C 停止）
 run: build
