@@ -16,13 +16,10 @@ export GOPROXY := env_var_or_default("GOPROXY", "https://goproxy.cn,direct")
 go := if os() == "windows" { "go" } else { "/mnt/c/Users/24358/.g/go/bin/go.exe" }
 node := if os() == "windows" { "node" } else { "/mnt/d/env/nodejs/node.exe" }
 
-# 平台相关命令片段
+# 平台相关命令片段（just 1.58 在 Windows 上默认 shell 也是 sh/Git Bash，
+# 因此统一使用 sh 语法；仅可执行文件名与工具链路径有平台差异）
 bin := if os() == "windows" { "rulego.exe" } else { "./rulego" }
-rm_cmd := if os() == "windows" {
-  "if exist rulego.exe del /q rulego.exe & if exist data rmdir /s /q data"
-} else {
-  "rm -f rulego && rm -rf data"
-}
+rm_cmd := "rm -f rulego rulego.exe && rm -rf data"
 
 # 构建
 build:
