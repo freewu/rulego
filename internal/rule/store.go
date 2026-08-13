@@ -138,6 +138,13 @@ func (s *Store) Update(id string, r *Rule) (*Rule, error) {
 	r.ID = old.ID
 	r.CreatedAt = old.CreatedAt
 	r.Version = old.Version
+	// 保留/补全软件版本号
+	if r.EngineVersion == "" {
+		r.EngineVersion = old.EngineVersion
+	}
+	if r.EngineVersion == "" {
+		r.EngineVersion = EngineVersion
+	}
 	if err := r.Validate(); err != nil {
 		return nil, err
 	}

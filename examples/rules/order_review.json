@@ -4,6 +4,7 @@
   "description": "订单金额超过 1000 时标记人工审核",
   "enabled": true,
   "version": 1,
+  "engine_version": "1.1.0",
   "trigger": "data.created",
   "workspace": {
     "blocks": {

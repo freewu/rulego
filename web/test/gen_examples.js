@@ -1,4 +1,5 @@
-// 生成示例规则 JSON（examples/rules/*.json）：使用真实 Blockly 序列化格式
+// 生成示例规则 JSON（examples/rules/*.json）与用例模板（examples/templates/*.json）：
+// 使用真实 Blockly 序列化格式
 const path = require("path");
 const fs = require("fs");
 const { JSDOM } = require("jsdom");
@@ -9,6 +10,9 @@ globalThis.navigator = dom.window.navigator;
 globalThis.DOMParser = dom.window.DOMParser;
 globalThis.XMLSerializer = dom.window.XMLSerializer;
 globalThis.Node = dom.window.Node;
+
+// 与后端 internal/rule.EngineVersion 保持一致
+const ENGINE_VERSION = "1.1.0";
 
 const web = path.resolve(__dirname, "..");
 const Blockly = require(path.join(web, "vendor/blockly/blockly_compressed.js"));
@@ -52,6 +56,7 @@ function ruleJson(id, name, desc, trigger, workspace, enabled = true) {
     description: desc,
     enabled,
     version: 1,
+    engine_version: ENGINE_VERSION,
     trigger,
     workspace,
     lua,
@@ -137,9 +142,77 @@ fs.writeFileSync(
   JSON.stringify(ruleJson("rule_order_review", "大额订单审核", "订单金额超过 1000 时标记人工审核", "data.created", orderWs), null, 2)
 );
 
+// ---------- 用例模板 ----------
+
+// 模板一：定时健康检查（timer.interval 触发 + 日志）
+const healthWs = workspaceJson((ws) => {
+  const trigger = ws.newBlock("rule_trigger");
+  trigger.setFieldValue("timer.interval", "EVENT");
+
+  const logBlock = ws.newBlock("rule_log");
+  logBlock.setFieldValue("info", "LEVEL");
+  const textMsg = ws.newBlock("text");
+  textMsg.setFieldValue("定时任务执行中", "TEXT");
+  logBlock.getInput("MSG").connection.connect(textMsg.outputConnection);
+
+  trigger.getInput("BODY").connection.connect(logBlock.previousConnection);
+});
+
+// 模板二：HTTP 请求访问日志（http.request 触发 + 日志）
+const httpWs = workspaceJson((ws) => {
+  const trigger = ws.newBlock("rule_trigger");
+  trigger.setFieldValue("http.request", "EVENT");
+
+  const logBlock = ws.newBlock("rule_log");
+  logBlock.setFieldValue("info", "LEVEL");
+  const join = ws.newBlock("text_join");
+  const method = ws.newBlock("ctx_get");
+  method.setFieldValue("method", "FIELD");
+  const suffix = ws.newBlock("text");
+  suffix.setFieldValue(" 请求", "TEXT");
+  join.getInput("ADD0").connection.connect(method.outputConnection);
+  join.getInput("ADD1").connection.connect(suffix.outputConnection);
+  logBlock.getInput("MSG").connection.connect(join.outputConnection);
+
+  trigger.getInput("BODY").connection.connect(logBlock.previousConnection);
+});
+
+// 模板三：数据删除通知（data.deleted 触发 + 短信告警）
+const delWs = workspaceJson((ws) => {
+  const trigger = ws.newBlock("rule_trigger");
+  trigger.setFieldValue("data.deleted", "EVENT");
+
+  const alertBlock = ws.newBlock("rule_alert");
+  alertBlock.setFieldValue("sms", "CHANNEL");
+  const textMsg = ws.newBlock("text");
+  textMsg.setFieldValue("数据被删除，请确认", "TEXT");
+  alertBlock.getInput("MSG").connection.connect(textMsg.outputConnection);
+
+  trigger.getInput("BODY").connection.connect(alertBlock.previousConnection);
+});
+
+const tplDir = path.join(__dirname, "..", "..", "examples", "templates");
+fs.mkdirSync(tplDir, { recursive: true });
+fs.writeFileSync(
+  path.join(tplDir, "health_check.json"),
+  JSON.stringify(ruleJson("rule_tpl_health_check", "模板：定时健康检查", "定时触发记录运行日志，可用于定时任务与心跳上报", "timer.interval", healthWs), null, 2)
+);
+fs.writeFileSync(
+  path.join(tplDir, "http_request_log.json"),
+  JSON.stringify(ruleJson("rule_tpl_http_log", "模板：HTTP 请求日志", "记录 HTTP 请求的方法与路径，输入数据需包含 method、path 字段", "http.request", httpWs), null, 2)
+);
+fs.writeFileSync(
+  path.join(tplDir, "delete_notify.json"),
+  JSON.stringify(ruleJson("rule_tpl_delete_notify", "模板：数据删除通知", "数据被删除时发送短信告警", "data.deleted", delWs), null, 2)
+);
+
 console.log("已生成示例规则:");
 console.log("  examples/rules/inventory_alert.json");
 console.log("  examples/rules/order_review.json");
+console.log("已生成用例模板:");
+console.log("  examples/templates/health_check.json");
+console.log("  examples/templates/http_request_log.json");
+console.log("  examples/templates/delete_notify.json");
 
 // 打印库存告警的 Lua 供参考
 console.log("\n===== inventory_alert.lua =====");

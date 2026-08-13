@@ -85,6 +85,7 @@ curl -X POST http://localhost:8080/api/rules/rule_inventory/run \
   "description": "库存低于阈值时发送告警",
   "enabled": true,
   "version": 3,
+  "engine_version": "1.1.0",
   "trigger": "data.updated",
   "workspace": { "...": "Blockly 工作区序列化，用于还原拖拽界面" },
   "lua": "function main(ctx)\n  if ctx['stock'] < 10 then\n    alert('email', tostring('低库存告警'))\n  end\nend",
@@ -99,7 +100,8 @@ curl -X POST http://localhost:8080/api/rules/rule_inventory/run \
 | `name` | string | 规则名称（必填） |
 | `description` | string | 规则描述 |
 | `enabled` | bool | 是否启用 |
-| `version` | int | 版本号，每次更新自增 |
+| `version` | int | 规则版本号，每次更新自增 |
+| `engine_version` | string | 软件版本号（rulego 引擎版本，创建/编辑时自动写入） |
 | `trigger` | string | 触发事件类型（见 `/api/triggers`） |
 | `workspace` | object | Blockly 工作区序列化，用于还原可视化编辑 |
 | `lua` | string | 生成的 Lua 规则脚本（必填） |
@@ -113,9 +115,13 @@ curl -X POST http://localhost:8080/api/rules/rule_inventory/run \
 | GET | `/api/triggers` | 支持的触发事件类型列表 |
 | GET | `/api/rules` | 规则列表 |
 | POST | `/api/rules` | 新建规则（ID 为空自动生成） |
+| GET | `/api/rules/export` | 导出全部规则（JSON 数组文件下载） |
+| POST | `/api/rules/import` | 导入规则（单条或数组；`?mode=overwrite\|skip`，默认 overwrite） |
 | GET | `/api/rules/{id}` | 查询规则 |
 | PUT | `/api/rules/{id}` | 更新规则（版本自增） |
 | DELETE | `/api/rules/{id}` | 删除规则 |
+| POST | `/api/rules/{id}/export` | 导出单条规则（JSON 文件下载） |
+| POST | `/api/rules/{id}/duplicate` | 复制规则（新 ID、名称加“(副本)”、默认停用） |
 | POST | `/api/rules/{id}/run` | 执行规则，`{"data":{...}}` 作为 ctx 输入 |
 | POST | `/api/validate` | Lua 语法校验，`{"lua":"..."}` |
 
@@ -167,10 +173,36 @@ rulego/
 │   ├── vendor/blockly/    # Blockly 本地化（离线可用）
 │   └── test/              # 前端 Lua 生成验证（Node + jsdom）
 ├── examples/rules/        # 示例规则（JSON）
+├── examples/templates/    # 用例模板（可直接导入使用）
 ├── scripts/push.sh        # 提交推送脚本（Windows git）
 ├── config.example.yaml    # 配置示例
 ├── justfile              # 常用命令（just 版，替代 Makefile）
 ```
+
+## 用例模板
+
+`examples/templates/` 提供可直接导入使用的用例模板（带 Blockly 工作区，导入后可继续可视化编辑）：
+
+| 文件 | 规则 | 触发事件 | 说明 |
+|------|------|----------|------|
+| `health_check.json` | 模板：定时健康检查 | `timer.interval` | 定时触发记录运行日志，用于定时任务 / 心跳上报 |
+| `http_request_log.json` | 模板：HTTP 请求日志 | `http.request` | 记录请求方法（输入含 `method`、`path` 字段） |
+| `delete_notify.json` | 模板：数据删除通知 | `data.deleted` | 数据删除时发送短信告警 |
+
+```bash
+# 通过 API 导入模板（单条）
+curl -X POST http://localhost:8080/api/rules/import \
+  -H "Content-Type: application/json" \
+  -d @examples/templates/health_check.json
+# => {"imported":1,"updated":0,"skipped":0,"failed":[]}
+
+# 批量导入：把多个 JSON 拼成数组；?mode=skip 跳过已存在的规则
+curl -X POST "http://localhost:8080/api/rules/import?mode=skip" \
+  -H "Content-Type: application/json" \
+  -d '[{"id":"a",...},{"id":"b",...}]'
+```
+
+也可以在 Web 界面点击 **📥 导入** 选择 JSON 文件导入；列表中的「复制 / 导出」按钮可快速复制规则或下载 JSON。
 
 ## 自定义积木开发
 

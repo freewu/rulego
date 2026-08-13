@@ -274,9 +274,11 @@ async function refreshRuleList() {
           <span class="rule-name">${esc(r.name)}</span>
           <span class="tag ${r.enabled ? "on" : "off"}">${r.enabled ? "启用" : "停用"}</span>
         </div>
-        <div class="rule-meta">${esc(r.id)} · ${esc(r.trigger)} · v${r.version} · ${created}</div>
+        <div class="rule-meta">${esc(r.id)} · ${esc(r.trigger)} · v${r.version}${r.engine_version ? " · " + esc(r.engine_version) : ""} · ${created}</div>
         <div class="rule-ops">
           <button class="btn load" data-id="${esc(r.id)}">载入</button>
+          <button class="btn copy" data-id="${esc(r.id)}">复制</button>
+          <button class="btn export" data-id="${esc(r.id)}">导出</button>
           <button class="btn toggle" data-id="${esc(r.id)}" data-enabled="${r.enabled}">${r.enabled ? "停用" : "启用"}</button>
           <button class="btn del" data-id="${esc(r.id)}">删除</button>
         </div>`;
@@ -348,6 +350,101 @@ async function deleteRule(id) {
   }
 }
 
+// ---------- 导出 ----------
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+async function exportRule(id) {
+  try {
+    const res = await fetch(`/api/rules/${encodeURIComponent(id)}/export`);
+    if (!res.ok) {
+      let msg = `导出失败 (${res.status})`;
+      try {
+        const d = await res.json();
+        if (d.error) msg = d.error;
+      } catch (e) { /* ignore */ }
+      throw new Error(msg);
+    }
+    downloadBlob(await res.blob(), `${id}.json`);
+    toast("已导出规则 JSON", "ok");
+  } catch (e) {
+    toast("导出失败: " + e.message, "err");
+  }
+}
+
+async function exportAllRules() {
+  try {
+    const res = await fetch("/api/rules/export");
+    if (!res.ok) {
+      let msg = `导出失败 (${res.status})`;
+      try {
+        const d = await res.json();
+        if (d.error) msg = d.error;
+      } catch (e) { /* ignore */ }
+      throw new Error(msg);
+    }
+    downloadBlob(await res.blob(), "rules_export.json");
+    toast("已导出全部规则", "ok");
+  } catch (e) {
+    toast("导出失败: " + e.message, "err");
+  }
+}
+
+// ---------- 导入 ----------
+function importRuleFile() {
+  const input = document.getElementById("file-import");
+  input.value = "";
+  input.click();
+}
+
+async function handleImportFile(e) {
+  const file = e.target.files && e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = async () => {
+    try {
+      JSON.parse(reader.result); // 先校验 JSON 合法性
+      const res = await fetch("/api/rules/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: reader.result,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `导入失败 (${res.status})`);
+      const parts = [];
+      if (data.imported) parts.push(`新增 ${data.imported} 条`);
+      if (data.updated) parts.push(`更新 ${data.updated} 条`);
+      if (data.skipped) parts.push(`跳过 ${data.skipped} 条`);
+      if (data.failed && data.failed.length)
+        parts.push(`失败 ${data.failed.length} 条`);
+      toast("导入完成：" + (parts.join("，") || "无变更"), data.failed && data.failed.length ? "err" : "ok");
+      refreshRuleList();
+    } catch (err) {
+      toast("导入失败: " + err.message, "err");
+    }
+  };
+  reader.readAsText(file, "utf-8");
+}
+
+// ---------- 复制 ----------
+async function duplicateRule(id) {
+  try {
+    const r = await api("POST", `/api/rules/${encodeURIComponent(id)}/duplicate`);
+    toast(`已复制为「${r.name}」`, "ok");
+    refreshRuleList();
+  } catch (e) {
+    toast("复制失败: " + e.message, "err");
+  }
+}
+
 // ---------- 新建 / 重置 ----------
 function resetEditor() {
   workspace.clear();
@@ -384,6 +481,12 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   document.getElementById("btn-new").addEventListener("click", resetEditor);
+  document.getElementById("btn-import").addEventListener("click", importRuleFile);
+  document.getElementById("btn-export").addEventListener("click", () => {
+    if (currentRuleId) exportRule(currentRuleId);
+    else if (confirm("当前没有已保存的规则，是否导出全部规则？")) exportAllRules();
+  });
+  document.getElementById("file-import").addEventListener("change", handleImportFile);
   document.getElementById("btn-generate").addEventListener("click", () => {
     const code = generateLua();
     if (!code.trim()) {
@@ -414,6 +517,8 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!btn) return;
     const id = btn.dataset.id;
     if (btn.classList.contains("load")) loadRule(id);
+    else if (btn.classList.contains("copy")) duplicateRule(id);
+    else if (btn.classList.contains("export")) exportRule(id);
     else if (btn.classList.contains("toggle"))
       toggleRule(id, btn.dataset.enabled !== "true");
     else if (btn.classList.contains("del")) deleteRule(id);

@@ -193,3 +193,119 @@ func TestCreateRule_Validation(t *testing.T) {
 		t.Error("应返回错误信息")
 	}
 }
+
+func TestRuleEngineVersion(t *testing.T) {
+	s := newTestServer(t)
+	rec, m := doReq(t, s, "POST", "/api/rules", sampleRule())
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("创建状态码 = %d", rec.Code)
+	}
+	if m["engine_version"] != rule.EngineVersion {
+		t.Errorf("engine_version = %v, want %s", m["engine_version"], rule.EngineVersion)
+	}
+	// 更新时 body 不带 engine_version 应保留旧值
+	up := sampleRule()
+	up.Name = "v2"
+	rec2, m2 := doReq(t, s, "PUT", "/api/rules/r_test", up)
+	if rec2.Code != http.StatusOK || m2["engine_version"] != rule.EngineVersion {
+		t.Errorf("更新后 engine_version = %v", m2["engine_version"])
+	}
+}
+
+func TestExportRules(t *testing.T) {
+	s := newTestServer(t)
+	doReq(t, s, "POST", "/api/rules", sampleRule())
+
+	// 导出全部
+	rec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec, httptest.NewRequest("GET", "/api/rules/export", nil))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("导出全部状态码 = %d", rec.Code)
+	}
+	if !strings.Contains(rec.Header().Get("Content-Disposition"), "rules_export.json") {
+		t.Errorf("缺少下载头: %v", rec.Header().Get("Content-Disposition"))
+	}
+	if !strings.Contains(rec.Body.String(), "r_test") {
+		t.Errorf("导出全部缺少规则: %s", rec.Body.String())
+	}
+
+	// 导出单条
+	rec2, m2 := doReq(t, s, "POST", "/api/rules/r_test/export", nil)
+	if rec2.Code != http.StatusOK || m2["id"] != "r_test" {
+		t.Errorf("导出单条 = %d %v", rec2.Code, m2)
+	}
+	if !strings.Contains(rec2.Header().Get("Content-Disposition"), "r_test.json") {
+		t.Errorf("单条导出缺少下载头: %v", rec2.Header().Get("Content-Disposition"))
+	}
+}
+
+func TestImportRules(t *testing.T) {
+	s := newTestServer(t)
+	doReq(t, s, "POST", "/api/rules", sampleRule())
+
+	// 导入数组：r_new 新增 + r_test 覆盖
+	newRule := sampleRule()
+	newRule.ID = "r_new"
+	newRule.Name = "导入的新规则"
+	upRule := sampleRule()
+	upRule.Name = "被覆盖的规则"
+	rec, m := doReq(t, s, "POST", "/api/rules/import", []*rule.Rule{newRule, upRule})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("导入状态码 = %d, body=%s", rec.Code, rec.Body.String())
+	}
+	if int(m["imported"].(float64)) != 1 || int(m["updated"].(float64)) != 1 || int(m["skipped"].(float64)) != 0 {
+		t.Errorf("导入统计 = %v", m)
+	}
+
+	// mode=skip：已存在的跳过
+	rec2, m2 := doReq(t, s, "POST", "/api/rules/import?mode=skip", upRule)
+	if rec2.Code != http.StatusOK || int(m2["skipped"].(float64)) != 1 {
+		t.Errorf("skip 导入统计 = %v", m2)
+	}
+
+	// 非法规则计入 failed
+	bad := sampleRule()
+	bad.ID = "r_bad_import"
+	bad.Lua = ""
+	rec3, m3 := doReq(t, s, "POST", "/api/rules/import", bad)
+	if rec3.Code != http.StatusOK || int(m3["imported"].(float64)) != 0 {
+		t.Errorf("非法导入统计 = %v", m3)
+	}
+	failed, ok := m3["failed"].([]interface{})
+	if !ok || len(failed) != 1 {
+		t.Errorf("failed = %v", m3["failed"])
+	}
+
+	// 空内容报错
+	rec4 := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec4, httptest.NewRequest("POST", "/api/rules/import", strings.NewReader("[]")))
+	if rec4.Code != http.StatusBadRequest {
+		t.Errorf("空导入状态码 = %d, want 400", rec4.Code)
+	}
+}
+
+func TestDuplicateRule(t *testing.T) {
+	s := newTestServer(t)
+	doReq(t, s, "POST", "/api/rules", sampleRule())
+
+	rec, m := doReq(t, s, "POST", "/api/rules/r_test/duplicate", nil)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("复制状态码 = %d, body=%s", rec.Code, rec.Body.String())
+	}
+	id, _ := m["id"].(string)
+	if !strings.Contains(id, "_copy_") {
+		t.Errorf("复制 ID = %s, want 含 _copy_", id)
+	}
+	if !strings.Contains(m["name"].(string), "副本") {
+		t.Errorf("复制名称 = %v", m["name"])
+	}
+	if m["enabled"] != false {
+		t.Errorf("副本应默认停用, enabled=%v", m["enabled"])
+	}
+
+	rec2 := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec2, httptest.NewRequest("GET", "/api/rules", nil))
+	if !strings.Contains(rec2.Body.String(), "_copy_") {
+		t.Errorf("列表应包含副本: %s", rec2.Body.String())
+	}
+}

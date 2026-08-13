@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -54,9 +55,13 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /api/triggers", s.handleTriggers)
 	s.mux.HandleFunc("GET /api/rules", s.handleListRules)
 	s.mux.HandleFunc("POST /api/rules", s.handleCreateRule)
+	s.mux.HandleFunc("GET /api/rules/export", s.handleExportRules)
+	s.mux.HandleFunc("POST /api/rules/import", s.handleImportRules)
 	s.mux.HandleFunc("GET /api/rules/{id}", s.handleGetRule)
 	s.mux.HandleFunc("PUT /api/rules/{id}", s.handleUpdateRule)
 	s.mux.HandleFunc("DELETE /api/rules/{id}", s.handleDeleteRule)
+	s.mux.HandleFunc("POST /api/rules/{id}/export", s.handleExportRule)
+	s.mux.HandleFunc("POST /api/rules/{id}/duplicate", s.handleDuplicateRule)
 	s.mux.HandleFunc("POST /api/rules/{id}/run", s.handleRunRule)
 	s.mux.HandleFunc("POST /api/validate", s.handleValidate)
 
@@ -147,6 +152,142 @@ func (s *Server) handleDeleteRule(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"deleted": id})
+}
+
+// ---------- 导出 ----------
+
+// handleExportRules 导出全部规则（JSON 数组，作为文件下载）。
+func (s *Server) handleExportRules(w http.ResponseWriter, r *http.Request) {
+	rules, err := s.store.List()
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	w.Header().Set("Content-Disposition", `attachment; filename="rules_export.json"`)
+	writeJSON(w, http.StatusOK, rules)
+}
+
+// handleExportRule 导出单条规则（JSON 文件下载）。
+func (s *Server) handleExportRule(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	item, err := s.store.Get(id)
+	if err != nil {
+		if errors.Is(err, rule.ErrNotFound) {
+			writeError(w, http.StatusNotFound, err)
+			return
+		}
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s.json"`, id))
+	writeJSON(w, http.StatusOK, item)
+}
+
+// ---------- 导入 ----------
+
+// importMode 是导入时对已存在规则的策略。
+type importMode int
+
+const (
+	modeOverwrite importMode = iota // 已存在则覆盖（默认）
+	modeSkip                        // 已存在则跳过
+)
+
+// importResult 是导入结果统计。
+type importResult struct {
+	Imported int      `json:"imported"` // 新增
+	Updated  int      `json:"updated"`  // 覆盖更新
+	Skipped  int      `json:"skipped"`  // 跳过（已存在且 mode=skip）
+	Failed   []string `json:"failed"`   // 失败原因列表
+}
+
+// handleImportRules 导入规则：请求体可为单条规则或规则数组。
+// 查询参数 mode=overwrite|skip（默认 overwrite）。
+func (s *Server) handleImportRules(w http.ResponseWriter, r *http.Request) {
+	mode := modeOverwrite
+	if r.URL.Query().Get("mode") == "skip" {
+		mode = modeSkip
+	}
+
+	var raw json.RawMessage
+	if err := decodeJSON(r, &raw); err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	var list []rule.Rule
+	if len(raw) > 0 && raw[0] == '[' {
+		if err := json.Unmarshal(raw, &list); err != nil {
+			writeError(w, http.StatusBadRequest, fmt.Errorf("解析规则数组失败: %w", err))
+			return
+		}
+	} else {
+		var single rule.Rule
+		if err := json.Unmarshal(raw, &single); err != nil {
+			writeError(w, http.StatusBadRequest, fmt.Errorf("解析规则失败: %w", err))
+			return
+		}
+		list = []rule.Rule{single}
+	}
+
+	if len(list) == 0 {
+		writeError(w, http.StatusBadRequest, errors.New("导入内容为空"))
+		return
+	}
+
+	result := importResult{Failed: []string{}}
+	for i := range list {
+		item := &list[i]
+		_, err := s.store.Get(item.ID)
+		switch {
+		case err == nil: // 已存在
+			if mode == modeSkip {
+				result.Skipped++
+				continue
+			}
+			if _, err := s.store.Update(item.ID, item); err != nil {
+				result.Failed = append(result.Failed, fmt.Sprintf("%s: %v", item.ID, err))
+				continue
+			}
+			result.Updated++
+		case errors.Is(err, rule.ErrNotFound): // 新增
+			if _, err := s.store.Create(item); err != nil {
+				result.Failed = append(result.Failed, fmt.Sprintf("%s: %v", item.ID, err))
+				continue
+			}
+			result.Imported++
+		default:
+			result.Failed = append(result.Failed, fmt.Sprintf("%s: %v", item.ID, err))
+		}
+	}
+	writeJSON(w, http.StatusOK, result)
+}
+
+// ---------- 复制 ----------
+
+// handleDuplicateRule 复制规则为新规则（新 ID、名称加“副本”后缀）。
+func (s *Server) handleDuplicateRule(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	old, err := s.store.Get(id)
+	if err != nil {
+		if errors.Is(err, rule.ErrNotFound) {
+			writeError(w, http.StatusNotFound, err)
+			return
+		}
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	copy := *old
+	copy.ID = fmt.Sprintf("%s_copy_%d", old.ID, time.Now().UnixMilli())
+	copy.Name = old.Name + "(副本)"
+	copy.Enabled = false // 副本默认停用，避免误触发
+	copy.CreatedAt = time.Time{}
+	copy.Version = 0
+	created, err := s.store.Create(&copy)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	writeJSON(w, http.StatusCreated, created)
 }
 
 // runRequest 是执行规则的请求体。

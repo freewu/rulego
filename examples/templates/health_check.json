@@ -1,0 +1,50 @@
+{
+  "id": "rule_tpl_health_check",
+  "name": "模板：定时健康检查",
+  "description": "定时触发记录运行日志，可用于定时任务与心跳上报",
+  "enabled": true,
+  "version": 1,
+  "engine_version": "1.1.0",
+  "trigger": "timer.interval",
+  "workspace": {
+    "blocks": {
+      "languageVersion": 0,
+      "blocks": [
+        {
+          "type": "rule_trigger",
+          "id": "blk_0",
+          "x": 0,
+          "y": 0,
+          "fields": {
+            "EVENT": "timer.interval"
+          },
+          "inputs": {
+            "BODY": {
+              "block": {
+                "type": "rule_log",
+                "id": "blk_1",
+                "fields": {
+                  "LEVEL": "info"
+                },
+                "inputs": {
+                  "MSG": {
+                    "block": {
+                      "type": "text",
+                      "id": "blk_2",
+                      "fields": {
+                        "TEXT": "定时任务执行中"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  },
+  "lua": "function main(ctx)\n  log('info', tostring('定时任务执行中'))\nend\n",
+  "created_at": "2026-08-12T00:00:00Z",
+  "updated_at": "2026-08-12T00:00:00Z"
+}

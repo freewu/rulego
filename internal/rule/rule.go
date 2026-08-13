@@ -3,16 +3,17 @@
 // 规则 JSON 结构：
 //
 //	{
-//	  "id":          "r_1629780000",        // 规则唯一 ID
-//	  "name":        "库存告警",              // 规则名称
-//	  "description": "库存低于阈值时告警",     // 规则描述
-//	  "enabled":     true,                  // 是否启用
-//	  "version":     1,                     // 版本号（每次保存自增）
-//	  "trigger":     "data.updated",        // 触发事件类型
-//	  "workspace":   { ... },               // Blockly 工作区 JSON（用于可视化还原）
-//	  "lua":         "function main(ctx) ... end", // Blockly 生成的 Lua 代码
-//	  "created_at":  "2024-01-01T00:00:00Z",
-//	  "updated_at":  "2024-01-01T00:00:00Z"
+//	  "id":              "r_1629780000",      // 规则唯一 ID
+//	  "name":            "库存告警",              // 规则名称
+//	  "description":     "库存低于阈值时告警",     // 规则描述
+//	  "enabled":         true,                  // 是否启用
+//	  "version":         1,                     // 规则版本号（每次保存自增）
+//	  "engine_version":  "1.1.0",              // 软件版本号（rulego 引擎版本）
+//	  "trigger":         "data.updated",       // 触发事件类型
+//	  "workspace":       { ... },               // Blockly 工作区 JSON（用于可视化还原）
+//	  "lua":             "function main(ctx) ... end", // Blockly 生成的 Lua 代码
+//	  "created_at":      "2024-01-01T00:00:00Z",
+//	  "updated_at":      "2024-01-01T00:00:00Z"
 //	}
 package rule
 
@@ -25,6 +26,10 @@ import (
 	"time"
 )
 
+// EngineVersion 是 rulego 引擎（软件）版本号。
+// 写入每条规则的 engine_version 字段，用于追溯规则由哪个版本创建/编辑。
+const EngineVersion = "1.1.0"
+
 // TriggerTypes 是后端支持的触发事件类型，前端 Blockly 事件积木的下拉选项与之一致。
 var TriggerTypes = []string{
 	"data.created",   // 数据创建
@@ -36,16 +41,17 @@ var TriggerTypes = []string{
 
 // Rule 表示一条可视化规则。
 type Rule struct {
-	ID          string          `json:"id"`
-	Name        string          `json:"name"`
-	Description string          `json:"description"`
-	Enabled     bool            `json:"enabled"`
-	Version     int             `json:"version"`
-	Trigger     string          `json:"trigger"`
-	Workspace   json.RawMessage `json:"workspace,omitempty"`
-	Lua         string          `json:"lua"`
-	CreatedAt   time.Time       `json:"created_at"`
-	UpdatedAt   time.Time       `json:"updated_at"`
+	ID            string          `json:"id"`
+	Name          string          `json:"name"`
+	Description   string          `json:"description"`
+	Enabled       bool            `json:"enabled"`
+	Version       int             `json:"version"`
+	EngineVersion string          `json:"engine_version,omitempty"` // rulego 软件版本号
+	Trigger       string          `json:"trigger"`
+	Workspace     json.RawMessage `json:"workspace,omitempty"`
+	Lua           string          `json:"lua"`
+	CreatedAt     time.Time       `json:"created_at"`
+	UpdatedAt     time.Time       `json:"updated_at"`
 }
 
 var idPattern = regexp.MustCompile(`^[a-zA-Z0-9_\-\.]{1,64}$`)
@@ -73,7 +79,7 @@ func (r *Rule) Validate() error {
 	return nil
 }
 
-// Normalize 补全 ID（若为空则生成）、时间戳等字段。
+// Normalize 补全 ID（若为空则生成）、时间戳、软件版本号等字段。
 func (r *Rule) Normalize() {
 	now := time.Now().UTC()
 	if r.ID == "" {
@@ -85,6 +91,9 @@ func (r *Rule) Normalize() {
 	r.UpdatedAt = now
 	if r.Version < 1 {
 		r.Version = 1
+	}
+	if r.EngineVersion == "" {
+		r.EngineVersion = EngineVersion
 	}
 }
 

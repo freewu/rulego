@@ -4,6 +4,7 @@
   "description": "库存低于阈值时发送告警",
   "enabled": true,
   "version": 1,
+  "engine_version": "1.1.0",
   "trigger": "data.updated",
   "workspace": {
     "blocks": {
