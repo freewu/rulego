@@ -1,0 +1,50 @@
+{
+  "id": "rule_tpl_delete_notify",
+  "name": "模板：数据删除通知",
+  "description": "数据被删除时发送短信告警",
+  "enabled": true,
+  "version": 1,
+  "engine_version": "1.1.0",
+  "trigger": "data.deleted",
+  "workspace": {
+    "blocks": {
+      "languageVersion": 0,
+      "blocks": [
+        {
+          "type": "rule_trigger",
+          "id": "blk_0",
+          "x": 0,
+          "y": 0,
+          "fields": {
+            "EVENT": "data.deleted"
+          },
+          "inputs": {
+            "BODY": {
+              "block": {
+                "type": "rule_alert",
+                "id": "blk_1",
+                "fields": {
+                  "CHANNEL": "sms"
+                },
+                "inputs": {
+                  "MSG": {
+                    "block": {
+                      "type": "text",
+                      "id": "blk_2",
+                      "fields": {
+                        "TEXT": "数据被删除，请确认"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  },
+  "lua": "function main(ctx)\n  alert('sms', tostring('数据被删除，请确认'))\nend\n",
+  "created_at": "2026-08-12T00:00:00Z",
+  "updated_at": "2026-08-12T00:00:00Z"
+}

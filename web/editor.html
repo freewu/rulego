@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>rulego · 规则编辑器</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo">⚙️</span>
+      <h1>rulego 规则编辑器</h1>
+      <span class="subtitle">Blockly 拖拽 · Lua 执行 · JSON 存储</span>
+    </div>
+    <div class="actions">
+      <button id="btn-back" class="btn">← 规则管理</button>
+      <button id="btn-new" class="btn">＋ 新建</button>
+      <button id="btn-export" class="btn">📤 导出</button>
+      <button id="btn-generate" class="btn btn-accent">⚡ 生成 Lua</button>
+      <button id="btn-save" class="btn btn-primary">💾 保存规则</button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <!-- Blockly 工作区 -->
+    <section class="workspace-pane">
+      <div id="blocklyDiv"></div>
+    </section>
+
+    <!-- 右侧面板 -->
+    <aside class="sidebar">
+      <nav class="tabs">
+        <button class="tab active" data-tab="info">规则信息</button>
+        <button class="tab" data-tab="lua">Lua 代码</button>
+        <button class="tab" data-tab="test">执行测试</button>
+      </nav>
+
+      <!-- 规则信息 -->
+      <div id="tab-info" class="tab-panel active">
+        <div class="form-row">
+          <label>规则名称</label>
+          <input id="rule-name" type="text" placeholder="例如：库存告警" />
+        </div>
+        <div class="form-row">
+          <label>规则描述</label>
+          <input id="rule-desc" type="text" placeholder="规则用途说明" />
+        </div>
+        <div class="form-row">
+          <label>当前规则 ID</label>
+          <input id="rule-id" type="text" placeholder="保存后自动生成" disabled />
+        </div>
+        <div class="form-row">
+          <label>启用状态</label>
+          <label class="switch">
+            <input id="rule-enabled" type="checkbox" checked />
+            <span class="slider"></span>
+            <span id="rule-enabled-text">已启用</span>
+          </label>
+        </div>
+        <div class="hint">
+          💡 在左侧拖拽「事件」积木作为规则入口，再组合判断、动作积木，
+          点击「生成 Lua」预览代码，最后「保存规则」将工作区与代码以 JSON 形式存入后端。
+        </div>
+      </div>
+
+      <!-- Lua 代码 -->
+      <div id="tab-lua" class="tab-panel">
+        <div class="panel-toolbar">
+          <button id="btn-copy-lua" class="btn btn-sm">复制代码</button>
+          <span id="validate-status" class="validate-status"></span>
+        </div>
+        <textarea id="lua-output" class="code-area" readonly spellcheck="false"
+          placeholder="点击「生成 Lua」查看由积木生成的 Lua 代码…"></textarea>
+        <div class="hint">
+          💡 生成的代码为 <code>function main(ctx) ... end</code> 形式，
+          后端通过沙箱执行，规则内可使用 <code>ctx.字段</code> 读取输入、
+          <code>log()</code> 输出日志、<code>alert()</code> 发送告警。
+        </div>
+      </div>
+
+      <!-- 执行测试 -->
+      <div id="tab-test" class="tab-panel">
+        <div class="form-row">
+          <label>输入数据（JSON，作为 ctx）</label>
+          <textarea id="test-input" class="code-area tall" spellcheck="false">{
+  "stock": 5,
+  "name": "warehouse-a"
+}</textarea>
+        </div>
+        <button id="btn-run" class="btn btn-primary btn-block">▶ 执行规则</button>
+        <div class="form-row">
+          <label>执行结果</label>
+          <pre id="test-output" class="result-area">尚未执行</pre>
+        </div>
+      </div>
+    </aside>
+  </main>
+
+  <!-- Blockly（本地 vendor，离线可用） -->
+  <script src="vendor/blockly/blockly_compressed.js"></script>
+  <script src="vendor/blockly/blocks_compressed.js"></script>
+  <script src="vendor/blockly/lua_compressed.js"></script>
+  <script src="vendor/blockly/msg/zh-hans.js"></script>
+
+  <!-- 应用代码 -->
+  <script src="js/blocks.js"></script>
+  <script src="js/lua_gen.js"></script>
+  <script src="js/main.js"></script>
+
+  <div id="toast"></div>
+</body>
+</html>

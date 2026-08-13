@@ -1,0 +1,107 @@
+{
+  "id": "rule_inventory",
+  "name": "库存告警",
+  "description": "库存低于阈值时发送告警",
+  "enabled": true,
+  "version": 1,
+  "engine_version": "1.1.0",
+  "trigger": "data.updated",
+  "workspace": {
+    "blocks": {
+      "languageVersion": 0,
+      "blocks": [
+        {
+          "type": "rule_trigger",
+          "id": "blk_0",
+          "x": 0,
+          "y": 0,
+          "fields": {
+            "EVENT": "data.updated"
+          },
+          "inputs": {
+            "BODY": {
+              "block": {
+                "type": "controls_if",
+                "id": "blk_1",
+                "inputs": {
+                  "IF0": {
+                    "block": {
+                      "type": "logic_compare",
+                      "id": "blk_2",
+                      "fields": {
+                        "OP": "LT"
+                      },
+                      "inputs": {
+                        "A": {
+                          "block": {
+                            "type": "ctx_get",
+                            "id": "blk_3",
+                            "fields": {
+                              "FIELD": "stock"
+                            }
+                          }
+                        },
+                        "B": {
+                          "block": {
+                            "type": "math_number",
+                            "id": "blk_4",
+                            "fields": {
+                              "NUM": 10
+                            }
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "DO0": {
+                    "block": {
+                      "type": "rule_alert",
+                      "id": "blk_5",
+                      "fields": {
+                        "CHANNEL": "email"
+                      },
+                      "inputs": {
+                        "MSG": {
+                          "block": {
+                            "type": "text",
+                            "id": "blk_6",
+                            "fields": {
+                              "TEXT": "低库存告警"
+                            }
+                          }
+                        }
+                      },
+                      "next": {
+                        "block": {
+                          "type": "rule_log",
+                          "id": "blk_7",
+                          "fields": {
+                            "LEVEL": "warn"
+                          },
+                          "inputs": {
+                            "MSG": {
+                              "block": {
+                                "type": "text",
+                                "id": "blk_8",
+                                "fields": {
+                                  "TEXT": "库存不足"
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  },
+  "lua": "function main(ctx)\n  if ctx['stock'] < 10 then\n    alert('email', tostring('低库存告警'))\n    log('warn', tostring('库存不足'))\n  end\nend\n",
+  "created_at": "2026-08-12T00:00:00Z",
+  "updated_at": "2026-08-12T00:00:00Z"
+}

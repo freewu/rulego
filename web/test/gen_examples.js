@@ -131,18 +131,7 @@ const orderWs = workspaceJson((ws) => {
   trigger.getInput("BODY").connection.connect(ifb.previousConnection);
 });
 
-const outDir = path.join(__dirname, "..", "..", "examples", "rules");
-fs.mkdirSync(outDir, { recursive: true });
-fs.writeFileSync(
-  path.join(outDir, "inventory_alert.json"),
-  JSON.stringify(ruleJson("rule_inventory", "库存告警", "库存低于阈值时发送告警", "data.updated", invWs), null, 2)
-);
-fs.writeFileSync(
-  path.join(outDir, "order_review.json"),
-  JSON.stringify(ruleJson("rule_order_review", "大额订单审核", "订单金额超过 1000 时标记人工审核", "data.created", orderWs), null, 2)
-);
-
-// ---------- 用例模板 ----------
+// ---------- 用例模板（Blockly 工作区构建） ----------
 
 // 模板一：定时健康检查（timer.interval 触发 + 日志）
 const healthWs = workspaceJson((ws) => {
@@ -191,20 +180,32 @@ const delWs = workspaceJson((ws) => {
   trigger.getInput("BODY").connection.connect(alertBlock.previousConnection);
 });
 
+// 案例规则定义：示例（examples/rules）与模板（examples/templates）
+// 同时输出到 internal/rule/seed/ 供 go:embed 内嵌，首次启动时自动初始化
+const outDir = path.join(__dirname, "..", "..", "examples", "rules");
 const tplDir = path.join(__dirname, "..", "..", "examples", "templates");
-fs.mkdirSync(tplDir, { recursive: true });
-fs.writeFileSync(
-  path.join(tplDir, "health_check.json"),
-  JSON.stringify(ruleJson("rule_tpl_health_check", "模板：定时健康检查", "定时触发记录运行日志，可用于定时任务与心跳上报", "timer.interval", healthWs), null, 2)
-);
-fs.writeFileSync(
-  path.join(tplDir, "http_request_log.json"),
-  JSON.stringify(ruleJson("rule_tpl_http_log", "模板：HTTP 请求日志", "记录 HTTP 请求的方法与路径，输入数据需包含 method、path 字段", "http.request", httpWs), null, 2)
-);
-fs.writeFileSync(
-  path.join(tplDir, "delete_notify.json"),
-  JSON.stringify(ruleJson("rule_tpl_delete_notify", "模板：数据删除通知", "数据被删除时发送短信告警", "data.deleted", delWs), null, 2)
-);
+const seedDir = path.join(__dirname, "..", "..", "internal", "rule", "seed");
+
+const examples = [
+  ["inventory_alert.json", ruleJson("rule_inventory", "库存告警", "库存低于阈值时发送告警", "data.updated", invWs)],
+  ["order_review.json", ruleJson("rule_order_review", "大额订单审核", "订单金额超过 1000 时标记人工审核", "data.created", orderWs)],
+];
+const templates = [
+  ["health_check.json", ruleJson("rule_tpl_health_check", "模板：定时健康检查", "定时触发记录运行日志，可用于定时任务与心跳上报", "timer.interval", healthWs)],
+  ["http_request_log.json", ruleJson("rule_tpl_http_log", "模板：HTTP 请求日志", "记录 HTTP 请求的方法与路径，输入数据需包含 method、path 字段", "http.request", httpWs)],
+  ["delete_notify.json", ruleJson("rule_tpl_delete_notify", "模板：数据删除通知", "数据被删除时发送短信告警", "data.deleted", delWs)],
+];
+
+function writeAll(dir, files) {
+  fs.mkdirSync(dir, { recursive: true });
+  for (const [name, rule] of files) {
+    fs.writeFileSync(path.join(dir, name), JSON.stringify(rule, null, 2));
+  }
+}
+
+writeAll(outDir, examples);
+writeAll(tplDir, templates);
+writeAll(seedDir, examples.concat(templates)); // 全部作为内置案例（启动自动初始化）
 
 console.log("已生成示例规则:");
 console.log("  examples/rules/inventory_alert.json");
@@ -213,6 +214,8 @@ console.log("已生成用例模板:");
 console.log("  examples/templates/health_check.json");
 console.log("  examples/templates/http_request_log.json");
 console.log("  examples/templates/delete_notify.json");
+console.log("已生成内置案例（启动自动初始化）:");
+console.log("  internal/rule/seed/");
 
 // 打印库存告警的 Lua 供参考
 console.log("\n===== inventory_alert.lua =====");
