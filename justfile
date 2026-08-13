@@ -21,6 +21,17 @@ node := if os() == "windows" { "node" } else { "/mnt/d/env/nodejs/node.exe" }
 # 注意：MSYS bash 的 PATH 不含当前目录，执行本地二进制必须带 ./ 前缀
 bin := if os() == "windows" { "./rulego.exe" } else { "./rulego" }
 rm_cmd := "rm -f rulego rulego.exe && rm -rf data"
+# 结束服务（平台分支）：
+# - Windows（Git Bash sh）：taskkill 在 PATH 中；用 //F //IM 避免 MSYS 把 /F 转成路径；
+#   rulego.exe 与无扩展名 rulego 都匹配，覆盖 interop 启动的无扩展名进程
+# - WSL/Linux：PATH 无 taskkill，经 cmd.exe 包装执行；pkill 兜底杀 WSL 侧直接启动的进程；
+#   [r]ulego 正则技巧避免匹配到自身 shell
+# 进程不存在时静默忽略
+stop_cmd := if os() == "windows" {
+    "taskkill //F //IM rulego.exe 2>/dev/null; taskkill //F //IM rulego 2>/dev/null; true"
+} else {
+    "cmd.exe /c \"taskkill /F /IM rulego.exe >nul 2>&1 & taskkill /F /IM rulego >nul 2>&1\"; pkill -f \"[r]ulego -c\" 2>/dev/null; true"
+}
 
 # 无参数执行 `just` 时列出可用命令
 @default:
@@ -33,6 +44,11 @@ build:
 # 运行（先构建，Ctrl+C 停止）
 run: build
     @{{bin}} -c config.example.yaml
+
+# 结束服务（停止 rulego 进程；进程不存在时静默忽略）
+stop:
+    @{{stop_cmd}}
+    @echo "已停止 rulego 服务（可运行 just run 重新启动）"
 
 # 后端测试（配置 / 规则存储 / Lua 沙箱 / HTTP API）
 test:

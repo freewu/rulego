@@ -27,6 +27,7 @@ go.work
 *.exe
 rulego-server
 rulego
+rulego~
 
 # Node
 web/node_modules/

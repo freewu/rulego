@@ -262,6 +262,12 @@ just test-frontend
 
 # 重新生成示例规则 JSON
 just examples
+
+# 运行服务（先自动构建）
+just run
+
+# 结束服务（停止 rulego 进程，Windows/WSL 通用，进程不存在时静默忽略）
+just stop
 ```
 
 ## 常见问题
