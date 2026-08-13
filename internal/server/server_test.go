@@ -309,3 +309,110 @@ func TestDuplicateRule(t *testing.T) {
 		t.Errorf("列表应包含副本: %s", rec2.Body.String())
 	}
 }
+
+// ---------- 版本历史 API ----------
+
+func TestVersionsAPI(t *testing.T) {
+	s := newTestServer(t)
+	doReq(t, s, "POST", "/api/rules", sampleRule())
+
+	// 更新两次产生历史
+	up1 := sampleRule()
+	up1.Name = "v2"
+	doReq(t, s, "PUT", "/api/rules/r_test", up1)
+	up2 := sampleRule()
+	up2.Name = "v3"
+	rec, m := doReq(t, s, "PUT", "/api/rules/r_test", up2)
+	if rec.Code != http.StatusOK || int(m["version"].(float64)) != 3 {
+		t.Fatalf("更新到 v3 = %d %v", rec.Code, m)
+	}
+
+	// 版本列表：历史 v1 v2（不含当前 v3）
+	rec2 := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec2, httptest.NewRequest("GET", "/api/rules/r_test/versions", nil))
+	if rec2.Code != http.StatusOK {
+		t.Fatalf("版本列表状态码 = %d", rec2.Code)
+	}
+	var list []map[string]interface{}
+	_ = json.Unmarshal(rec2.Body.Bytes(), &list)
+	if len(list) != 2 || int(list[0]["version"].(float64)) != 1 || int(list[1]["version"].(float64)) != 2 {
+		t.Errorf("版本列表 = %v, want [v1 v2]", list)
+	}
+
+	// 获取指定版本
+	rec3, m3 := doReq(t, s, "GET", "/api/rules/r_test/versions/1", nil)
+	if rec3.Code != http.StatusOK || m3["name"] != "测试规则" {
+		t.Errorf("获取 v1 = %d %v", rec3.Code, m3)
+	}
+	// 当前版本也可按版本号获取
+	rec4, m4 := doReq(t, s, "GET", "/api/rules/r_test/versions/3", nil)
+	if rec4.Code != http.StatusOK || m4["name"] != "v3" {
+		t.Errorf("获取 v3(当前) = %d %v", rec4.Code, m4)
+	}
+	// 不存在的版本 → 404
+	rec5, _ := doReq(t, s, "GET", "/api/rules/r_test/versions/99", nil)
+	if rec5.Code != http.StatusNotFound {
+		t.Errorf("不存在的版本状态码 = %d, want 404", rec5.Code)
+	}
+}
+
+func TestRestoreVersionAPI(t *testing.T) {
+	s := newTestServer(t)
+	doReq(t, s, "POST", "/api/rules", sampleRule())
+	up := sampleRule()
+	up.Name = "v2 内容"
+	doReq(t, s, "PUT", "/api/rules/r_test", up)
+
+	rec, m := doReq(t, s, "POST", "/api/rules/r_test/versions/1/restore", nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("回滚状态码 = %d, body=%s", rec.Code, rec.Body.String())
+	}
+	if m["name"] != "测试规则" {
+		t.Errorf("回滚后名称 = %v", m["name"])
+	}
+	if int(m["version"].(float64)) != 3 {
+		t.Errorf("回滚后版本 = %v, want 3", m["version"])
+	}
+}
+
+func TestRuleDiffAPI(t *testing.T) {
+	s := newTestServer(t)
+	doReq(t, s, "POST", "/api/rules", sampleRule())
+	up := sampleRule()
+	up.Name = "改名了"
+	doReq(t, s, "PUT", "/api/rules/r_test", up)
+
+	// v1 vs v2
+	rec, m := doReq(t, s, "GET", "/api/rules/r_test/diff?v1=1&v2=2", nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("diff 状态码 = %d, body=%s", rec.Code, rec.Body.String())
+	}
+	patch, ok := m["patch"].([]interface{})
+	if !ok || len(patch) == 0 {
+		t.Fatalf("patch = %v", m["patch"])
+	}
+	found := false
+	for _, op := range patch {
+		opm, _ := op.(map[string]interface{})
+		if opm["path"] == "/name" && opm["op"] == "replace" {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("diff 缺少 name 修改: %v", patch)
+	}
+
+	// 缺少 v1 → 400
+	rec2 := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec2, httptest.NewRequest("GET", "/api/rules/r_test/diff", nil))
+	if rec2.Code != http.StatusBadRequest {
+		t.Errorf("缺 v1 状态码 = %d, want 400", rec2.Code)
+	}
+
+	// 不存在的版本 → 404
+	rec3 := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec3, httptest.NewRequest("GET", "/api/rules/r_test/diff?v1=1&v2=99", nil))
+	if rec3.Code != http.StatusNotFound {
+		t.Errorf("diff 不存在版本状态码 = %d, want 404", rec3.Code)
+	}
+}

@@ -28,6 +28,8 @@ type ServerConfig struct {
 // StorageConfig 规则存储配置。
 type StorageConfig struct {
 	RulesDir string `yaml:"rules_dir" json:"rules_dir"`
+	// VersionLimit 每条规则保留的历史版本数量；超出时自动淘汰最旧版本。0 表示不限制。
+	VersionLimit int `yaml:"version_limit" json:"version_limit"`
 }
 
 // LuaConfig Lua 运行时配置。
@@ -44,7 +46,8 @@ func Default() *Config {
 			StaticDir: "web",
 		},
 		Storage: StorageConfig{
-			RulesDir: "data/rules",
+			RulesDir:     "data/rules",
+			VersionLimit: 20,
 		},
 		Lua: LuaConfig{
 			TimeoutSeconds: 5,
@@ -90,6 +93,11 @@ func (c *Config) applyEnv() {
 	if v := os.Getenv("RULEGO_STORAGE_RULES_DIR"); v != "" {
 		c.Storage.RulesDir = v
 	}
+	if v := os.Getenv("RULEGO_STORAGE_VERSION_LIMIT"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil {
+			c.Storage.VersionLimit = n
+		}
+	}
 	if v := os.Getenv("RULEGO_LUA_TIMEOUT_SECONDS"); v != "" {
 		if n, err := strconv.Atoi(v); err == nil {
 			c.Lua.TimeoutSeconds = n
@@ -110,6 +118,9 @@ func (c *Config) Normalize() error {
 	if c.Lua.TimeoutSeconds <= 0 {
 		c.Lua.TimeoutSeconds = 5
 	}
+	if c.Storage.VersionLimit < 0 {
+		c.Storage.VersionLimit = 20
+	}
 	return nil
 }
 
@@ -119,6 +130,7 @@ func (c *Config) String() string {
 	fmt.Fprintf(&sb, "server: %s\n", c.Addr())
 	fmt.Fprintf(&sb, "static_dir: %s\n", c.Server.StaticDir)
 	fmt.Fprintf(&sb, "rules_dir: %s\n", c.Storage.RulesDir)
+	fmt.Fprintf(&sb, "version_limit: %d\n", c.Storage.VersionLimit)
 	fmt.Fprintf(&sb, "lua_timeout: %ds\n", c.Lua.TimeoutSeconds)
 	return sb.String()
 }

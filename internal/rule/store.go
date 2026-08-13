@@ -12,17 +12,32 @@ import (
 )
 
 // Store 基于文件系统的规则存储：每个规则一个 JSON 文件，存放在 RulesDir 下。
+// 版本历史以快照文件形式存放在 RulesDir/.versions/{id}/v{n}.json。
 // 并发安全（内部有互斥锁）。
 type Store struct {
-	mu      sync.RWMutex
-	dir     string
-	index   map[string]string // id -> 磁盘上的绝对路径
-	changed bool
+	mu          sync.RWMutex
+	dir         string
+	index       map[string]string // id -> 磁盘上的绝对路径
+	maxVersions int               // 每条规则保留的历史版本数量（0 = 不限制）
+	changed     bool
+}
+
+// Option 是 Store 的构造选项。
+type Option func(*Store)
+
+// WithMaxVersions 设置每条规则保留的历史版本数量；超出时自动淘汰最旧版本。0 表示不限制。
+func WithMaxVersions(n int) Option {
+	return func(s *Store) {
+		s.maxVersions = n
+	}
 }
 
 // NewStore 创建规则存储，并扫描已有规则文件建立索引。
-func NewStore(dir string) (*Store, error) {
+func NewStore(dir string, opts ...Option) (*Store, error) {
 	s := &Store{dir: dir, index: map[string]string{}}
+	for _, opt := range opts {
+		opt(s)
+	}
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return nil, fmt.Errorf("创建规则目录失败: %w", err)
 	}
@@ -107,7 +122,7 @@ func (s *Store) Get(id string) (*Rule, error) {
 	return s.readFile(path)
 }
 
-// Create 新增规则，ID 为空时自动生成。
+// Create 新增规则，ID 为空时自动生成，并保存 v1 版本快照。
 func (s *Store) Create(r *Rule) (*Rule, error) {
 	r.Normalize()
 	if err := r.Validate(); err != nil {
@@ -122,10 +137,14 @@ func (s *Store) Create(r *Rule) (*Rule, error) {
 		return nil, err
 	}
 	s.index[r.ID] = s.filePath(r.ID)
+	if err := s.saveVersionLocked(r.ID, r.Version, r); err != nil {
+		return nil, err
+	}
+	s.trimVersionsLocked(r.ID)
 	return r, nil
 }
 
-// Update 更新规则：ID 不变，版本自增。
+// Update 更新规则：ID 不变，版本自增；更新前先将当前版本保存为历史快照。
 func (s *Store) Update(id string, r *Rule) (*Rule, error) {
 	if id == "" {
 		return nil, errors.New("规则 ID 不能为空")
@@ -151,13 +170,18 @@ func (s *Store) Update(id string, r *Rule) (*Rule, error) {
 	r.Touch()
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	// 更新前保存旧版本快照（old.Version 对应的内容，即当前主文件）
+	if err := s.saveVersionLocked(id, old.Version, old); err != nil {
+		return nil, err
+	}
 	if err := s.writeFileLocked(r); err != nil {
 		return nil, err
 	}
+	s.trimVersionsLocked(id)
 	return r, nil
 }
 
-// Delete 删除规则。
+// Delete 删除规则（连同版本历史目录）。
 func (s *Store) Delete(id string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -169,6 +193,10 @@ func (s *Store) Delete(id string) error {
 		return err
 	}
 	delete(s.index, id)
+	// 清理版本历史目录
+	if err := os.RemoveAll(s.versionsDir(id)); err != nil {
+		return err
+	}
 	return nil
 }
 

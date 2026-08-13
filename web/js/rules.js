@@ -105,6 +105,8 @@ function renderList() {
       <td class="cell-time">${fmtTime(r.updated_at)}</td>
       <td class="cell-ops">
         <button class="btn edit" data-id="${esc(r.id)}">编辑</button>
+        <button class="btn history" data-id="${esc(r.id)}">历史</button>
+        <button class="btn json" data-id="${esc(r.id)}">JSON</button>
         <button class="btn copy" data-id="${esc(r.id)}">复制</button>
         <button class="btn export" data-id="${esc(r.id)}">导出</button>
         <button class="btn toggle" data-id="${esc(r.id)}" data-enabled="${r.enabled}">${r.enabled ? "停用" : "启用"}</button>
@@ -237,6 +239,202 @@ async function handleImportFile(e) {
   reader.readAsText(file, "utf-8");
 }
 
+// ---------- 版本历史 ----------
+let versionRuleId = ""; // 当前打开版本弹窗的规则 ID
+
+// 打开版本历史弹窗
+async function openVersions(id) {
+  versionRuleId = id;
+  const rule = allRules.find((r) => r.id === id);
+  document.getElementById("version-modal-title").textContent =
+    `版本历史 · ${rule ? rule.name : id}`;
+  document.getElementById("version-modal").hidden = false;
+  document.getElementById("diff-result").hidden = true;
+  const tbody = document.getElementById("version-tbody");
+  tbody.innerHTML = `<tr><td colspan="4" class="empty">加载中…</td></tr>`;
+  try {
+    const versions = await api("GET", `/api/rules/${encodeURIComponent(id)}/versions`);
+    renderVersions(versions, rule ? rule.version : 0);
+    fillDiffSelects(versions, rule ? rule.version : 0);
+  } catch (e) {
+    tbody.innerHTML = `<tr><td colspan="4" class="empty">加载失败: ${esc(e.message)}</td></tr>`;
+  }
+}
+
+function renderVersions(versions, current) {
+  const tbody = document.getElementById("version-tbody");
+  if (!versions.length) {
+    tbody.innerHTML = `<tr><td colspan="4" class="empty">暂无历史版本（当前为 v${current}）</td></tr>`;
+    return;
+  }
+  // 当前版本显示在最前
+  const rows = [
+    `<tr class="row-current">
+      <td><code>v${current}</code> <span class="tag on">当前</span></td>
+      <td class="cell-time">${fmtTime(versions.length ? "" : "")}</td>
+      <td>-</td>
+      <td class="cell-ops">
+        <button class="btn json" data-v="${current}">查看 JSON</button>
+      </td>
+    </tr>`,
+    ...versions
+      .map(
+        (v) => `
+    <tr>
+      <td><code>v${v.version}</code></td>
+      <td class="cell-time">${fmtTime(v.saved_at)}</td>
+      <td>${(v.size / 1024).toFixed(1)} KB</td>
+      <td class="cell-ops">
+        <button class="btn json" data-v="${v.version}">查看 JSON</button>
+        <button class="btn restore" data-v="${v.version}">回滚</button>
+      </td>
+    </tr>`
+      )
+      .join(""),
+  ];
+  tbody.innerHTML = rows.join("");
+}
+
+function fillDiffSelects(versions, current) {
+  const opts = [
+    `<option value="${current}">v${current}（当前）</option>`,
+    ...versions
+      .slice()
+      .reverse()
+      .map((v) => `<option value="${v.version}">v${v.version}</option>`),
+  ];
+  document.getElementById("diff-v1").innerHTML = opts.join("");
+  document.getElementById("diff-v2").innerHTML = opts.join("");
+  // 默认 v1=最早，v2=当前
+  const all = versions.slice();
+  if (all.length) {
+    document.getElementById("diff-v1").value = all[0].version;
+  }
+  document.getElementById("diff-v2").value = current;
+}
+
+// 版本 JSON 比对
+async function diffVersions() {
+  const v1 = document.getElementById("diff-v1").value;
+  const v2 = document.getElementById("diff-v2").value;
+  if (v1 === v2) {
+    toast("请选择两个不同的版本进行比对", "err");
+    return;
+  }
+  const result = document.getElementById("diff-result");
+  const tbody = document.getElementById("diff-tbody");
+  result.hidden = false;
+  tbody.innerHTML = `<tr><td colspan="3" class="empty">比对中…</td></tr>`;
+  try {
+    const data = await api(
+      "GET",
+      `/api/rules/${encodeURIComponent(versionRuleId)}/diff?v1=${v1}&v2=${v2}`
+    );
+    const patch = data.patch || [];
+    document.getElementById("diff-summary").textContent =
+      `v${data.v1} → v${data.v2}：共 ${patch.length} 处差异`;
+    if (!patch.length) {
+      tbody.innerHTML = `<tr><td colspan="3" class="empty">两个版本内容一致</td></tr>`;
+      return;
+    }
+    tbody.innerHTML = patch
+      .map((op) => {
+        const val =
+          op.value === undefined
+            ? ""
+            : typeof op.value === "string"
+            ? esc(op.value.slice(0, 120))
+            : esc(JSON.stringify(op.value).slice(0, 120));
+        const opLabel = { add: "新增", remove: "删除", replace: "修改", move: "移动", copy: "复制", test: "校验" }[op.op] || op.op;
+        const cls = op.op === "remove" ? "op-del" : op.op === "add" ? "op-add" : "op-replace";
+        return `<tr><td><span class="op-tag ${cls}">${opLabel}</span></td><td><code>${esc(op.path || "/")}</code></td><td class="cell-val">${val}</td></tr>`;
+      })
+      .join("");
+  } catch (e) {
+    tbody.innerHTML = `<tr><td colspan="3" class="empty">比对失败: ${esc(e.message)}</td></tr>`;
+  }
+}
+
+// 查看某版本 JSON（复用 JSON 弹窗，只读态）
+async function viewVersionJson(id, v) {
+  try {
+    const data = await api("GET", `/api/rules/${encodeURIComponent(id)}/versions/${v}`);
+    openJsonEditor(id, data, true);
+  } catch (e) {
+    toast("读取版本失败: " + e.message, "err");
+  }
+}
+
+// 回滚到某版本
+async function restoreVersion(id, v) {
+  if (!confirm(`确定将规则「${id}」回滚到 v${v} 吗？\n回滚将保存为新的版本。`)) return;
+  try {
+    const r = await api("POST", `/api/rules/${encodeURIComponent(id)}/versions/${v}/restore`);
+    toast(`已回滚到 v${v}（当前 v${r.version}）`, "ok");
+    loadRules();
+    openVersions(id);
+  } catch (e) {
+    toast("回滚失败: " + e.message, "err");
+  }
+}
+
+// ---------- JSON 查看 / 编辑 ----------
+let jsonRuleId = "";
+let jsonReadonly = false;
+
+async function openJsonEditor(id, data, readonly) {
+  jsonRuleId = id;
+  jsonReadonly = !!readonly;
+  const rule = data || (allRules.find((r) => r.id === id) || {});
+  document.getElementById("json-modal-title").textContent =
+    `规则 JSON · ${rule.name || id}`;
+  document.getElementById("json-modal").hidden = false;
+  const editor = document.getElementById("json-editor");
+  if (data) {
+    editor.value = JSON.stringify(data, null, 2);
+  } else {
+    try {
+      const full = await api("GET", `/api/rules/${encodeURIComponent(id)}`);
+      editor.value = JSON.stringify(full, null, 2);
+    } catch (e) {
+      toast("读取规则失败: " + e.message, "err");
+      return;
+    }
+  }
+  editor.readOnly = jsonReadonly;
+  document.getElementById("btn-json-save").style.display = jsonReadonly ? "none" : "";
+}
+
+async function saveJsonEditor() {
+  if (jsonReadonly) return;
+  const raw = document.getElementById("json-editor").value;
+  let obj;
+  try {
+    obj = JSON.parse(raw);
+  } catch (e) {
+    toast("JSON 格式错误: " + e.message, "err");
+    return;
+  }
+  try {
+    const saved = await api("PUT", `/api/rules/${encodeURIComponent(jsonRuleId)}`, obj);
+    toast(`JSON 已保存（v${saved.version}）`, "ok");
+    closeModal("json-modal");
+    loadRules();
+  } catch (e) {
+    toast("保存失败: " + e.message, "err");
+  }
+}
+
+function downloadJsonEditor() {
+  const raw = document.getElementById("json-editor").value;
+  downloadBlob(new Blob([raw], { type: "application/json" }), `${jsonRuleId}.json`);
+}
+
+// ---------- 弹窗 ----------
+function closeModal(id) {
+  document.getElementById(id).hidden = true;
+}
+
 // ---------- 事件绑定 ----------
 document.addEventListener("DOMContentLoaded", () => {
   loadRules();
@@ -266,10 +464,33 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!btn) return;
     const id = btn.dataset.id;
     if (btn.classList.contains("edit")) editRule(id);
+    else if (btn.classList.contains("history")) openVersions(id);
+    else if (btn.classList.contains("json")) openJsonEditor(id);
     else if (btn.classList.contains("copy")) duplicateRule(id);
     else if (btn.classList.contains("export")) exportRule(id);
     else if (btn.classList.contains("toggle"))
       toggleRule(id, btn.dataset.enabled !== "true");
     else if (btn.classList.contains("del")) deleteRule(id);
+  });
+
+  // 版本弹窗内操作（事件委托）
+  document.getElementById("version-tbody").addEventListener("click", (e) => {
+    const btn = e.target.closest("button");
+    if (!btn) return;
+    const v = btn.dataset.v;
+    if (btn.classList.contains("json")) viewVersionJson(versionRuleId, v);
+    else if (btn.classList.contains("restore")) restoreVersion(versionRuleId, v);
+  });
+
+  document.getElementById("btn-diff").addEventListener("click", diffVersions);
+  document.getElementById("btn-json-save").addEventListener("click", saveJsonEditor);
+  document.getElementById("btn-json-download").addEventListener("click", downloadJsonEditor);
+  document.querySelectorAll(".modal-close").forEach((btn) => {
+    btn.addEventListener("click", () => closeModal(btn.dataset.close));
+  });
+  document.querySelectorAll(".modal-overlay").forEach((ov) => {
+    ov.addEventListener("click", (e) => {
+      if (e.target === ov) closeModal(ov.id);
+    });
   });
 });

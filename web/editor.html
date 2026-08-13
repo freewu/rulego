@@ -33,6 +33,7 @@
       <nav class="tabs">
         <button class="tab active" data-tab="info">规则信息</button>
         <button class="tab" data-tab="lua">Lua 代码</button>
+        <button class="tab" data-tab="json">JSON 视图</button>
         <button class="tab" data-tab="test">执行测试</button>
       </nav>
 
@@ -76,6 +77,20 @@
           💡 生成的代码为 <code>function main(ctx) ... end</code> 形式，
           后端通过沙箱执行，规则内可使用 <code>ctx.字段</code> 读取输入、
           <code>log()</code> 输出日志、<code>alert()</code> 发送告警。
+        </div>
+      </div>
+
+      <!-- JSON 视图 -->
+      <div id="tab-json" class="tab-panel">
+        <div class="panel-toolbar">
+          <button id="btn-apply-json" class="btn btn-sm">应用 JSON</button>
+          <span class="validate-status"></span>
+        </div>
+        <textarea id="json-editor" class="code-area tall" spellcheck="false"
+          placeholder="规则完整 JSON（可直接编辑，点击「应用 JSON」保存）。\n注意：直接编辑 JSON 会跳过 Blockly 工作区，保存后页面将重新载入。"></textarea>
+        <div class="hint">
+          💡 可直接修改 <code>name</code>、<code>enabled</code>、<code>lua</code>、<code>trigger</code> 等字段；
+          <code>id</code>、<code>version</code>、<code>created_at</code> 由后端管理，修改无效。
         </div>
       </div>
 

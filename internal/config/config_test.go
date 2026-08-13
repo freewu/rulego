@@ -55,6 +55,7 @@ lua:
 func TestLoad_EnvOverride(t *testing.T) {
 	t.Setenv("RULEGO_SERVER_PORT", "7777")
 	t.Setenv("RULEGO_LUA_TIMEOUT_SECONDS", "3")
+	t.Setenv("RULEGO_STORAGE_VERSION_LIMIT", "7")
 	cfg, err := Load("")
 	if err != nil {
 		t.Fatal(err)
@@ -64,6 +65,9 @@ func TestLoad_EnvOverride(t *testing.T) {
 	}
 	if cfg.Lua.TimeoutSeconds != 3 {
 		t.Errorf("环境变量覆盖超时 = %d, want 3", cfg.Lua.TimeoutSeconds)
+	}
+	if cfg.Storage.VersionLimit != 7 {
+		t.Errorf("环境变量覆盖版本保留数 = %d, want 7", cfg.Storage.VersionLimit)
 	}
 }
 

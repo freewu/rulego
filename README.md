@@ -9,7 +9,9 @@
 - 📄 **JSON 规则格式** — 每条规则一个 JSON 文件，包含 Blockly 工作区（可还原）与 Lua 代码
 - 🛡️ **沙箱执行** — 基于 gopher-lua 的受限运行时：不开放 `os/io/debug`，移除 `dofile/loadfile/load/print`，支持抢占式超时终止
 - 🗄️ **配置管理** — YAML 配置文件 + `RULEGO_*` 环境变量覆盖 + 内置默认值，三级机制
-- 🔌 **REST API** — 规则 CRUD、Lua 语法校验、在线执行测试
+- 🔌 **REST API** — 规则 CRUD、Lua 语法校验、在线执行测试、版本历史与 JSON diff
+- 📚 **版本管理** — 每次更新自动保存历史快照，支持查看 / 回滚 / 版本间 JSON diff，保留数量可配置
+- 📝 **JSON 直编** — 管理页与编辑器均可直接查看 / 编辑规则 JSON 文件
 - 📦 **离线可用** — Blockly 已 vendor 到 `web/vendor/`（约 1.2MB），无需 CDN
 - ✅ **完整测试** — Go 单元测试（配置/存储/沙箱/API）+ Node jsdom 前端生成测试
 
@@ -55,8 +57,8 @@ API 与前端地址: http://0.0.0.0:8080
 
 | 页面 | 地址 | 说明 |
 |------|------|------|
-| **规则管理**（默认首页） | `/` | 统计卡片、状态筛选、规则列表（编辑 / 复制 / 导出 / 启停 / 删除）、导入导出 |
-| **规则编辑器** | `/editor.html` | Blockly 拖拽编辑；从管理页点「编辑」或「新建」跳转进入，`?id=` 自动载入 |
+| **规则管理**（默认首页） | `/` | 统计卡片、状态筛选、规则列表（编辑 / 历史 / JSON / 复制 / 导出 / 启停 / 删除）、导入导出、版本比对弹窗 |
+| **规则编辑器** | `/editor.html` | Blockly 拖拽编辑 + Lua 代码 + JSON 视图 + 执行测试；从管理页点「编辑」或「新建」跳转进入，`?id=` 自动载入 |
 
 ### 2. 用 Blockly 编辑一条规则
 
@@ -85,7 +87,7 @@ curl -X POST http://localhost:8080/api/rules/rule_inventory/run \
 
 ## 规则 JSON 格式
 
-每条规则保存为一个 JSON 文件（默认目录 `data/rules/`）：
+每条规则保存为一个 JSON 文件（默认目录 `data/rules/`），历史版本快照存放在 `data/rules/.versions/{id}/v{n}.json`：
 
 ```json
 {
@@ -116,6 +118,13 @@ curl -X POST http://localhost:8080/api/rules/rule_inventory/run \
 | `lua` | string | 生成的 Lua 规则脚本（必填） |
 | `created_at` / `updated_at` | string | RFC3339 时间戳 |
 
+### 版本历史
+
+- **自动快照**：创建时保存 v1，每次更新（`PUT` / 导入覆盖 / 回滚）前自动保存当前版本快照到 `data/rules/.versions/{id}/`
+- **查看 / 回滚**：管理页点「历史」可查看版本列表与任意版本 JSON，点「回滚」以该版本内容生成新版本（版本号自增）
+- **JSON diff**：弹窗中选择两个版本进行比对，返回 RFC 6902 JSON Patch（操作：新增 / 删除 / 修改）
+- **保留数量**：`storage.version_limit` 控制每条规则保留的历史快照数（默认 20，0 = 不限制），超出时自动淘汰最旧版本；当前版本不计入保留数
+
 ## REST API
 
 | 方法 | 路径 | 说明 |
@@ -131,6 +140,10 @@ curl -X POST http://localhost:8080/api/rules/rule_inventory/run \
 | DELETE | `/api/rules/{id}` | 删除规则 |
 | POST | `/api/rules/{id}/export` | 导出单条规则（JSON 文件下载） |
 | POST | `/api/rules/{id}/duplicate` | 复制规则（新 ID、名称加“(副本)”、默认停用） |
+| GET | `/api/rules/{id}/versions` | 版本历史列表（不含当前版本） |
+| GET | `/api/rules/{id}/versions/{v}` | 获取指定版本内容（v=当前版本时返回最新） |
+| POST | `/api/rules/{id}/versions/{v}/restore` | 回滚到指定版本（版本自增为新版本） |
+| GET | `/api/rules/{id}/diff?v1=&v2=` | 两个版本的 JSON 差异（RFC 6902 JSON Patch；v2 缺省 = 当前版本） |
 | POST | `/api/rules/{id}/run` | 执行规则，`{"data":{...}}` 作为 ctx 输入 |
 | POST | `/api/validate` | Lua 语法校验，`{"lua":"..."}` |
 
@@ -162,9 +175,18 @@ server:
   static_dir: "web"
 storage:
   rules_dir: "data/rules"
+  version_limit: 20   # 每条规则保留的历史版本数量（超出自动淘汰最旧，0 = 不限制）
 lua:
   timeout_seconds: 5
 ```
+
+| 配置项 | 默认值 | 说明 |
+|--------|--------|------|
+| `server.host` / `server.port` | `0.0.0.0` / `8080` | HTTP 监听地址 / 端口 |
+| `server.static_dir` | `web` | 前端静态资源目录 |
+| `storage.rules_dir` | `data/rules` | 规则 JSON 存储目录 |
+| `storage.version_limit` | `20` | 每条规则保留的历史版本数（`0` = 不限制） |
+| `lua.timeout_seconds` | `5` | 单条规则 Lua 执行超时 |
 
 ## 项目结构
 
@@ -173,7 +195,7 @@ rulego/
 ├── cmd/rulego/            # 服务启动入口（首次启动自动初始化案例规则）
 ├── internal/
 │   ├── config/            # 配置管理（YAML + 环境变量 + 默认值）
-│   ├── rule/              # 规则模型（JSON）、文件存储、内置案例（seed/，go:embed 内嵌）
+│   ├── rule/              # 规则模型（JSON）、文件存储、版本历史（versions.go）、内置案例（seed/，go:embed 内嵌）
 │   ├── lua/               # gopher-lua 沙箱执行引擎
 │   └── server/            # HTTP API 与前端静态资源托管
 ├── web/                   # Blockly 前端

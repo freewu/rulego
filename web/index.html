@@ -69,6 +69,61 @@
     </section>
   </main>
 
+  <!-- 版本历史弹窗 -->
+  <div id="version-modal" class="modal-overlay" hidden>
+    <div class="modal">
+      <div class="modal-header">
+        <h2 id="version-modal-title">版本历史</h2>
+        <button class="btn modal-close" data-close="version-modal">✕</button>
+      </div>
+      <div class="modal-body">
+        <!-- JSON diff 比对 -->
+        <div class="diff-toolbar">
+          <span class="diff-label">版本比对</span>
+          <select id="diff-v1"></select>
+          <span class="diff-arrow">→</span>
+          <select id="diff-v2"></select>
+          <button id="btn-diff" class="btn btn-sm">比对差异</button>
+        </div>
+        <div id="diff-result" class="diff-result" hidden>
+          <div class="diff-summary" id="diff-summary"></div>
+          <table class="diff-table">
+            <thead><tr><th>操作</th><th>路径</th><th>值</th></tr></thead>
+            <tbody id="diff-tbody"></tbody>
+          </table>
+        </div>
+        <!-- 版本列表 -->
+        <table class="rule-table">
+          <thead>
+            <tr><th>版本</th><th>保存时间</th><th>大小</th><th>操作</th></tr>
+          </thead>
+          <tbody id="version-tbody">
+            <tr><td colspan="4" class="empty">加载中…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- JSON 查看/编辑弹窗 -->
+  <div id="json-modal" class="modal-overlay" hidden>
+    <div class="modal modal-wide">
+      <div class="modal-header">
+        <h2 id="json-modal-title">规则 JSON</h2>
+        <button class="btn modal-close" data-close="json-modal">✕</button>
+      </div>
+      <div class="modal-body">
+        <textarea id="json-editor" class="code-area tall" spellcheck="false"
+          placeholder="规则 JSON 内容…（可编辑，保存后写入后端）"></textarea>
+      </div>
+      <div class="modal-footer">
+        <button id="btn-json-save" class="btn btn-primary">💾 保存 JSON</button>
+        <button id="btn-json-download" class="btn">⬇ 下载</button>
+        <button class="btn modal-close" data-close="json-modal">取消</button>
+      </div>
+    </div>
+  </div>
+
   <script src="js/rules.js"></script>
   <div id="toast"></div>
 </body>

@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -62,6 +63,10 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("DELETE /api/rules/{id}", s.handleDeleteRule)
 	s.mux.HandleFunc("POST /api/rules/{id}/export", s.handleExportRule)
 	s.mux.HandleFunc("POST /api/rules/{id}/duplicate", s.handleDuplicateRule)
+	s.mux.HandleFunc("GET /api/rules/{id}/versions", s.handleListVersions)
+	s.mux.HandleFunc("GET /api/rules/{id}/versions/{v}", s.handleGetVersion)
+	s.mux.HandleFunc("POST /api/rules/{id}/versions/{v}/restore", s.handleRestoreVersion)
+	s.mux.HandleFunc("GET /api/rules/{id}/diff", s.handleRuleDiff)
 	s.mux.HandleFunc("POST /api/rules/{id}/run", s.handleRunRule)
 	s.mux.HandleFunc("POST /api/validate", s.handleValidate)
 
@@ -288,6 +293,95 @@ func (s *Server) handleDuplicateRule(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusCreated, created)
+}
+
+// ---------- 版本历史 ----------
+
+// handleListVersions 返回规则的历史版本列表（不含当前版本）。
+func (s *Server) handleListVersions(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	list, err := s.store.ListVersions(id)
+	if err != nil {
+		writeStoreErr(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, list)
+}
+
+// handleGetVersion 返回规则指定版本的内容（v=当前版本时读主文件）。
+func (s *Server) handleGetVersion(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	v, err := strconv.Atoi(r.PathValue("v"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, fmt.Errorf("无效版本号: %s", r.PathValue("v")))
+		return
+	}
+	item, err := s.store.GetVersion(id, v)
+	if err != nil {
+		writeStoreErr(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, item)
+}
+
+// handleRestoreVersion 回滚规则到指定版本（版本自增为新版本）。
+func (s *Server) handleRestoreVersion(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	v, err := strconv.Atoi(r.PathValue("v"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, fmt.Errorf("无效版本号: %s", r.PathValue("v")))
+		return
+	}
+	restored, err := s.store.RestoreVersion(id, v)
+	if err != nil {
+		writeStoreErr(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, restored)
+}
+
+// handleRuleDiff 比较规则两个版本的 JSON 差异（RFC 6902 JSON Patch）。
+// 查询参数：v1（基准）、v2（目标），默认比较 v1 与当前版本。
+func (s *Server) handleRuleDiff(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	cur, err := s.store.Get(id)
+	if err != nil {
+		writeStoreErr(w, err)
+		return
+	}
+	v1, err := strconv.Atoi(r.URL.Query().Get("v1"))
+	if err != nil || v1 < 1 {
+		writeError(w, http.StatusBadRequest, errors.New("缺少或无效的 v1 参数"))
+		return
+	}
+	v2 := cur.Version
+	if q := r.URL.Query().Get("v2"); q != "" {
+		v2, err = strconv.Atoi(q)
+		if err != nil || v2 < 1 {
+			writeError(w, http.StatusBadRequest, errors.New("无效的 v2 参数"))
+			return
+		}
+	}
+	patch, err := s.store.Diff(id, v1, v2)
+	if err != nil {
+		writeStoreErr(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]interface{}{
+		"rule_id": id,
+		"v1":      v1,
+		"v2":      v2,
+		"patch":   patch,
+	})
+}
+
+// writeStoreErr 统一处理存储层错误 → HTTP 状态码。
+func writeStoreErr(w http.ResponseWriter, err error) {
+	if errors.Is(err, rule.ErrNotFound) {
+		writeError(w, http.StatusNotFound, err)
+		return
+	}
+	writeError(w, http.StatusInternalServerError, err)
 }
 
 // runRequest 是执行规则的请求体。

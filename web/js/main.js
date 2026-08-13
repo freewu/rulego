@@ -272,6 +272,7 @@ async function loadRule(id) {
       ? "已启用"
       : "已停用";
     document.getElementById("lua-output").value = r.lua || "";
+    document.getElementById("json-editor").value = JSON.stringify(r, null, 2);
     toast(`已载入规则「${r.name}」`, "ok");
     switchTab("info");
   } catch (e) {
@@ -319,10 +320,34 @@ function resetEditor() {
   document.getElementById("rule-enabled").checked = true;
   document.getElementById("rule-enabled-text").textContent = "已启用";
   document.getElementById("lua-output").value = "";
+  document.getElementById("json-editor").value = "";
   document.getElementById("validate-status").textContent = "";
   document.getElementById("validate-status").className = "validate-status";
   document.getElementById("test-output").textContent = "尚未执行";
   toast("已新建空白规则", "ok");
+}
+
+// ---------- 应用 JSON（直接编辑规则 JSON 并保存） ----------
+async function applyJson() {
+  if (!currentRuleId) {
+    toast("请先保存规则（或从管理页载入）再编辑 JSON", "err");
+    return;
+  }
+  const raw = document.getElementById("json-editor").value.trim();
+  let obj;
+  try {
+    obj = JSON.parse(raw);
+  } catch (e) {
+    toast("JSON 格式错误: " + e.message, "err");
+    return;
+  }
+  try {
+    const saved = await api("PUT", `/api/rules/${currentRuleId}`, obj);
+    toast(`JSON 已保存（v${saved.version}），重新载入…`, "ok");
+    loadRule(saved.id);
+  } catch (e) {
+    toast("保存失败: " + e.message, "err");
+  }
 }
 
 // ---------- Tab 切换 ----------
@@ -368,6 +393,7 @@ document.addEventListener("DOMContentLoaded", () => {
   });
   document.getElementById("btn-save").addEventListener("click", saveRule);
   document.getElementById("btn-run").addEventListener("click", runRule);
+  document.getElementById("btn-apply-json").addEventListener("click", applyJson);
   document.getElementById("btn-copy-lua").addEventListener("click", async () => {
     const code = document.getElementById("lua-output").value;
     if (!code) return toast("没有可复制的代码", "err");
